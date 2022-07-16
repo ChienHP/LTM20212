@@ -41,7 +41,7 @@ int isCreated[MAX_NUM_THREAD] = { 0 };
 
 void sendMessage(SOCKET, char *);
 
-void registerAccount(string);
+void registerAccount(string, session *);
 
 // handle when user logs in
 void login(string ,session *);
@@ -283,7 +283,7 @@ void createRoom(string data, session *userSession) {
 }
 
 void getListRoom(session *userSession){
-	string result = "";
+	string result = ""; 
 	for (int i = 0; i < listRoom.size(); i++) {
 		result = result + listRoom[i].id + " " + listRoom[i].status + "\n";
 	}
@@ -291,12 +291,12 @@ void getListRoom(session *userSession){
 	char sendBuff[2048];
 
 	while (sentByte + 2048 < length) {
-		result.copy(sendBuff, 2048, sentByte);
+		strncpy_s(sendBuff, result.c_str(), 2048);
 		sentByte += 2048;
 		sendMessage(userSession->sock, sendBuff);
 	}
-	result.copy(sendBuff, length - sentByte, sentByte);
-	strcat(sendBuff, "#");
+	strncpy_s(sendBuff, result.c_str(), length - sentByte);
+	strncat_s(sendBuff, "#", length - sentByte + 1);
 	sendMessage(userSession->sock, sendBuff);
 }
 
@@ -333,7 +333,7 @@ void handle(char* sBuff, session *userSession) {
 		login(data, userSession);
 	} else
 	if (requestMessageType == "REGISTER") {
-		registerAccount(data);
+		registerAccount(data, userSession);
 	} else
 	if (requestMessageType == "PRACTICE") {
 		practice(userSession);
@@ -458,7 +458,7 @@ unsigned __stdcall procThread(void *param) {
 					if (rcvBuff[indexBuff] == '#') {
 						message[indexMess] = 0;
 						// handle and send message to client
-						sendBuff = handle(message, &clientSession[index]);
+						handle(message, &clientSession[index]);
 						indexMess = 0;
 						indexBuff++;
 						continue;

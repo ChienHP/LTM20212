@@ -1,3 +1,7 @@
 ﻿  Server.cpp
-  Server.vcxproj -> C:\Users\Admin\Documents\Visual Studio 2015\Projects\BTLProject\Debug\Server.exe
-  Server.vcxproj -> C:\Users\Admin\Documents\Visual Studio 2015\Projects\BTLProject\Debug\Server.pdb (Full PDB)
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(287): warning C4018: '<': signed/unsigned mismatch
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(397): warning C4101: 'sendBuff': unreferenced local variable
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(398): warning C4101: 'connSock': unreferenced local variable
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(399): warning C4101: 'clientAddr': unreferenced local variable
+  Server.vcxproj -> C:\Users\Admin\documents\visual studio 2015\Projects\BTLProject\Debug\Server.exe
+  Server.vcxproj -> C:\Users\Admin\documents\visual studio 2015\Projects\BTLProject\Debug\Server.pdb (Full PDB)
