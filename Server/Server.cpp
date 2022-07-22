@@ -1,4 +1,4 @@
-// WSAEventSelectServer.cpp : Defines the entry point for the console application.
+﻿// WSAEventSelectServer.cpp : Defines the entry point for the console application.
 //
 
 #include "stdafx.h"
@@ -27,16 +27,27 @@ typedef struct room {
 	string time;
 	string numberOfQuestion;
 	string idOfExam;
-	session paticipant;
 } room;
+// thông tin của 1 câu hỏi
+typedef struct questionInfo {
+	string question;  // câu hỏi và 3 lựa chọn trắc nghiệm
+	char result; // kết quả
+} questionInfo;
+
+typedef struct exam {
+	int numberOfQuestion; // số lượng câu hỏi của đề thi
+	vector<questionInfo> questions; // số thứ tự của câu hỏi trong file lưu trữ
+} exam;
 
 #define BUFF_SIZE 2048
 #define SERVER_ADDR "127.0.0.1"
 #define MAX_NUM_THREAD 1000
 session clientSession[1000];
 vector<pair<string, string> > userAccount;
-vector<pair<string, string> >::iterator iterAccount;
-vector<room> listRoom;
+vector<pair<string, string> >::iterator iterAccount; 
+vector<room> rooms; // danh sách phòng thi
+vector<questionInfo> questions; // mảng lưu trữ question từ file
+vector<exam> exams;
 int isCreated[MAX_NUM_THREAD] = { 0 };
 
 void sendMessage(SOCKET, char *);
@@ -62,8 +73,12 @@ void createRoom(string data, session *);
 
 void getListRoom(session *);
 
+void submit(string data, session *);
+
 // read file into userAccount
-int readFile();
+int readFileAccount();
+
+int readFileQuestion();
 
 /* procThread - Thread to receive the message from client and process*/
 unsigned __stdcall procThread(void *);
@@ -76,9 +91,11 @@ int main(int argc, char* argv[])
 	SOCKET		listenSock;
 	WSAEVENT	eventListen[1];
 	WSANETWORKEVENTS sockEvent;
-
-
-	readFile();
+	int a;
+	readFileAccount();
+	readFileQuestion();
+	cin >> a;
+	return 0;
 	//Step 1: Initiate WinSock
 	WSADATA wsaData;
 	WORD wVersion = MAKEWORD(2, 2);
@@ -86,16 +103,14 @@ int main(int argc, char* argv[])
 		printf("Winsock 2.2 is not supported\n");
 		return 0;
 	}
-
 	//Step 2: Construct LISTEN socket	
 	listenSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
 	//Step 3: Bind address to socket
 	sockaddr_in serverAddr;
 	serverAddr.sin_family = AF_INET;
-	serverAddr.sin_port = htons(atoi(argv[1]));
+	serverAddr.sin_port = htons(5500);
 	inet_pton(AF_INET, SERVER_ADDR, &serverAddr.sin_addr);
-
 
 	eventListen[0] = WSACreateEvent(); //create new events
 	nEvents++;
@@ -259,8 +274,8 @@ void login(string data, session *userSession) {
 }
 
 // handle when user post
-char *practice(session *userSession) {
-	return "temp"; // Tra ve danh sach
+void practice(session *userSession) {
+	return; // Tra ve danh sach
 }
 
 void choose(string data, session *userSession) {
@@ -277,15 +292,15 @@ void createRoom(string data, session *userSession) {
 	newRoom->numberOfQuestion = stoi(numberOfQuestion);
 	newRoom->status = 1;
 	newRoom->time = time;
-	listRoom.push_back(*newRoom);
+	rooms.push_back(*newRoom);
 	sendMessage(userSession->sock, "#12");
 	return;
 }
 
 void getListRoom(session *userSession){
-	string result = ""; 
-	for (int i = 0; i < listRoom.size(); i++) {
-		result = result + listRoom[i].id + " " + listRoom[i].status + "\n";
+	string result = "13 "; 
+	for (int i = 0; i < rooms.size(); i++) {
+		result = result + rooms[i].id + " " + rooms[i].status + "/";
 	}
 	int sentByte = 0, length = result.length();
 	char sendBuff[2048];
@@ -296,10 +311,24 @@ void getListRoom(session *userSession){
 		sendMessage(userSession->sock, sendBuff);
 	}
 	strncpy_s(sendBuff, result.c_str(), length - sentByte);
-	strncat_s(sendBuff, "#", length - sentByte + 1);
+	strcat_s(sendBuff, "#");
 	sendMessage(userSession->sock, sendBuff);
 }
 
+void submit(string data, session * userSession) {
+	int temp = data.find(' ');
+	int idOfRoom = stoi(data.substr(0, temp));
+	string result = data.substr(temp + 1);
+	int idOfExam = stoi(rooms[idOfRoom].idOfExam);
+	int indexOfResult = 0;
+	int point = 0;
+	while (result[indexOfResult]) {
+		if (result[indexOfResult] == exams[idOfExam].questions[indexOfResult].result) {
+			point++;
+		}
+	}
+	// Gửi điểm về client và lưu vào phòng thi
+}
 // handle when user logs out
 void logout(session *userSession) {
 	char *result = "";
@@ -353,18 +382,17 @@ void handle(char* sBuff, session *userSession) {
 	if (requestMessageType == "RESULT") {
 
 	} else
-	if (requestMessageType == "RESULT") {
-
+	if (requestMessageType == "SUBMIT") {
+		submit(data, userSession);
 	}
 	
 
-	sendMessage(userSession->sock, "#99");
+	sendMessage(userSession->sock, "99#");
 	return;
 }
 
 // read file into userAccount
-int readFile() {
-	string temp;
+int readFileAccount() {
 	string account;
 	string statusAccount;
 	ifstream fileInput("account.txt");
@@ -386,6 +414,49 @@ int readFile() {
 	return 1;
 }
 
+int readFileQuestion() {
+	ifstream fileInput("Question.txt");
+	if (fileInput.fail()) {
+		printf("Failed to open this file!\n");
+		return 0;
+	}
+	questionInfo * tempQuestion = new questionInfo();
+	int i = 0;
+	while (!fileInput.eof())
+	{
+		char temp[2048];
+		fileInput.getline(temp, 2048);
+		if (i == 5) {
+			i = 0;
+			continue;
+		} else
+		if (i == 4) {
+			char result = temp[0];
+			tempQuestion->result = (char)result;
+			questions.push_back(*tempQuestion);
+			tempQuestion = new questionInfo();
+			i++;
+		} else
+		if (i == 3) {
+			string line = temp;
+			tempQuestion->question += line;
+			i++;
+			continue;
+		}
+		else {
+			string line = temp;
+			tempQuestion->question += line;
+			tempQuestion->question += "/";
+			i++;
+		}
+	}
+
+	fileInput.close();
+	for (int i = 0; i < questions.size(); i++) {
+		cout << questions[i].question << endl;
+		cout << "Result: " <<questions[i].result << endl;
+	}
+}
 
 unsigned __stdcall procThread(void *param) {
 	DWORD		nEvents = 0;
