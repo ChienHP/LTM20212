@@ -26,6 +26,7 @@ typedef struct room {
 	string time;
 	string numberOfQuestion;
 	string idOfExam;
+	session * admin;
 	vector<pair<string, int>> resultOfExam;
 } room;
 // thông tin của 1 câu hỏi
@@ -280,10 +281,6 @@ void practice(session *userSession) {
 	return; // Tra ve danh sach
 }
 
-void choose(string data, session *userSession) {
-	return;
-}
-
 void createRoom(string data, session *userSession) {
 	char *result = "";
 	int temp = data.find(' ');
@@ -294,8 +291,9 @@ void createRoom(string data, session *userSession) {
 	newRoom->numberOfQuestion = stoi(numberOfQuestion);
 	newRoom->status = 1;
 	newRoom->time = time;
+	newRoom->admin = userSession;
 	rooms.push_back(*newRoom);
-	sendMessage(userSession->sock, "#12");
+	sendMessage(userSession->sock, "#15");
 	return;
 }
 
@@ -352,7 +350,7 @@ void logout(session *userSession) {
 		// Log out of the current session
 		userSession->account = "";
 		userSession->status = 0;
-		result = "30#";
+		result = "12#";
 	}
 	//LeaveCriticalSection(&criticalSection);
 	if (result != "") {
@@ -377,9 +375,6 @@ void handle(char* sBuff, session *userSession) {
 	} else
 	if (requestMessageType == "PRACTICE") {
 		practice(userSession);
-	} else
-	if (requestMessageType == "CHOOSE") {
-		choose(data, userSession);
 	} else
 	if (requestMessageType == "CREATEROOM") {
 		createRoom(data, userSession);
