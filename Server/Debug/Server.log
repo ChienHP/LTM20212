@@ -1,9 +1,13 @@
 ﻿  Server.cpp
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(302): warning C4018: '<': signed/unsigned mismatch
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(455): warning C4018: '<': signed/unsigned mismatch
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(468): warning C4101: 'sendBuff': unreferenced local variable
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(469): warning C4101: 'connSock': unreferenced local variable
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(470): warning C4101: 'clientAddr': unreferenced local variable
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(459): warning C4715: 'readFileQuestion': not all control paths return a value
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(304): warning C4018: '<': signed/unsigned mismatch
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(333): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(466): warning C4018: '<': signed/unsigned mismatch
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(479): warning C4101: 'sendBuff': unreferenced local variable
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(480): warning C4101: 'connSock': unreferenced local variable
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(481): warning C4101: 'clientAddr': unreferenced local variable
+c:\program files (x86)\microsoft visual studio 14.0\vc\include\utility(200): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+  c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(334): note: see reference to function template instantiation 'std::pair<std::string,int>::pair<std::basic_string<char,std::char_traits<char>,std::allocator<char>>,float,void,0>(std::pair<std::basic_string<char,std::char_traits<char>,std::allocator<char>>,float> &&) noexcept' being compiled
+  c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(334): note: see reference to function template instantiation 'std::pair<std::string,int>::pair<std::basic_string<char,std::char_traits<char>,std::allocator<char>>,float,void,0>(std::pair<std::basic_string<char,std::char_traits<char>,std::allocator<char>>,float> &&) noexcept' being compiled
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(470): warning C4715: 'readFileQuestion': not all control paths return a value
   Server.vcxproj -> C:\Users\Admin\documents\visual studio 2015\Projects\BTLProject\Debug\Server.exe
   Server.vcxproj -> C:\Users\Admin\documents\visual studio 2015\Projects\BTLProject\Debug\Server.pdb (Full PDB)

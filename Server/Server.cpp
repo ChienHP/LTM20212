@@ -22,11 +22,11 @@ typedef struct session {
 } session;
 
 typedef struct room {
-	string id;
 	string status; // 1: Chua bat dau, 2: Dang dien ra, 3: Da ket thuc
 	string time;
 	string numberOfQuestion;
 	string idOfExam;
+	vector<pair<string, int>> resultOfExam;
 } room;
 // thông tin của 1 câu hỏi
 typedef struct questionInfo {
@@ -74,6 +74,8 @@ void createRoom(string data, session *);
 void getListRoom(session *);
 
 void submit(string data, session *);
+
+void join(string data, session *);
 
 // read file into userAccount
 int readFileAccount();
@@ -300,7 +302,7 @@ void createRoom(string data, session *userSession) {
 void getListRoom(session *userSession){
 	string result = "13 "; 
 	for (int i = 0; i < rooms.size(); i++) {
-		result = result + rooms[i].id + " " + rooms[i].status + "/";
+		result = result + to_string(i) + " " + rooms[i].status + "/";
 	}
 	int sentByte = 0, length = result.length();
 	char sendBuff[2048];
@@ -321,13 +323,22 @@ void submit(string data, session * userSession) {
 	string result = data.substr(temp + 1);
 	int idOfExam = stoi(rooms[idOfRoom].idOfExam);
 	int indexOfResult = 0;
-	int point = 0;
+	int correct = 0;
 	while (result[indexOfResult]) {
 		if (result[indexOfResult] == exams[idOfExam].questions[indexOfResult].result) {
-			point++;
+			correct++;
 		}
 	}
+	int numberOfQuestion = stoi(rooms[idOfRoom].numberOfQuestion);
+	float point = correct / numberOfQuestion * 10;
+	rooms[idOfRoom].resultOfExam.push_back(make_pair(userSession->account, point));
 	// Gửi điểm về client và lưu vào phòng thi
+}
+
+void join(string data, session *userSession) {
+	int idOfRoom = stoi(data);
+	rooms[idOfRoom].resultOfExam.push_back(make_pair(userSession->account, -1));
+	sendMessage(userSession->sock, "14#");
 }
 // handle when user logs out
 void logout(session *userSession) {
@@ -377,7 +388,7 @@ void handle(char* sBuff, session *userSession) {
 		getListRoom(userSession);
 	} else
 	if (requestMessageType == "JOIN") {
-
+		join(data, userSession);
 	} else
 	if (requestMessageType == "RESULT") {
 
