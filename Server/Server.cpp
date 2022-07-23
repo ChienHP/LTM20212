@@ -50,6 +50,7 @@ vector<room> rooms; // danh sách phòng thi
 vector<questionInfo> questions; // mảng lưu trữ question từ file
 vector<exam> exams;
 int isCreated[MAX_NUM_THREAD] = { 0 };
+char * convertStringToCharArray(string source);
 
 void sendMessage(SOCKET, char *);
 
@@ -97,8 +98,6 @@ int main(int argc, char* argv[])
 	int a;
 	readFileAccount();
 	readFileQuestion();
-	cin >> a;
-	return 0;
 	//Step 1: Initiate WinSock
 	WSADATA wsaData;
 	WORD wVersion = MAKEWORD(2, 2);
@@ -188,6 +187,15 @@ int main(int argc, char* argv[])
 	closesocket(listenSock);
 	WSACleanup();
 	return 0;
+}
+char * convertStringToCharArray(string data) {
+	int i = 0;
+	char result[2048];
+	while (data[i]) {
+		result[i] = data[i];
+		i++;
+	}
+	return result;
 }
 
 void sendMessage(SOCKET sock, char *sendBuff) {
@@ -293,7 +301,9 @@ void createRoom(string data, session *userSession) {
 	newRoom->time = time;
 	newRoom->admin = userSession;
 	rooms.push_back(*newRoom);
-	sendMessage(userSession->sock, "#15");
+	string message = "15 " + to_string(rooms.size() - 1)+"#";
+	char* sendBuff= convertStringToCharArray(message);
+	sendMessage(userSession->sock, sendBuff);
 	return;
 }
 
