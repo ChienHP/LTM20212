@@ -1029,10 +1029,12 @@ void submit() {
 }
 
 void result(string roomID) {
-	char sBuff[BUFF_SIZE] = "SUBMIT ";
+	char sBuff[BUFF_SIZE] = "RESULT ";
+	char idC[10];
+	strcpy(idC, idRoom.c_str());
+	strcat(sBuff, idC);
 	Send(client, sBuff, BUFF_SIZE, 0);
 	char rBuff[BUFF_SIZE];
-
 	Receive(client, rBuff, BUFF_SIZE, 0);
 	string rBuffStr = string(rBuff);
 	int temp = rBuffStr.find(' ');
