@@ -197,7 +197,7 @@ int main(int argc, char* argv[])
 }
 char * convertStringToCharArray(string data) {
 	int i = 0;
-	char result[2048];
+	char result[10000];
 	while (data[i]) {
 		result[i] = data[i];
 		i++;
@@ -317,11 +317,11 @@ void createRoom(string data, session *userSession) {
 		int idOfQuestion = rand() % maxQuestion;
 		idOfQuestions.insert(idOfQuestion);
 	}
-	for (int i = 0; i < idOfQuestions.size(); i++) {
+	for (int i : idOfQuestions) {
 		tempExam->questions.push_back(questions[i]);
 	}
 	exams.push_back(*tempExam);
-	newRoom->idOfExam = exams.size() - 1;
+	newRoom->idOfExam = to_string(exams.size() - 1);
 	rooms.push_back(*newRoom);
 
 	string message = "15 " + to_string(rooms.size() - 1)+ "#";
@@ -382,7 +382,11 @@ void join(string data, session *userSession) {
 }
 void start(string data, session *userSession) {
 	int idOfRoom = stoi(data);
-	if (rooms[idOfRoom].admin->account == userSession->account) {
+	if (rooms[idOfRoom].admin->account.compare(userSession->account)) {
+		// thong bao: Ng gui k phai admin
+		sendMessage(userSession->sock, "27#");
+	}
+	else {
 		// chuyen trang thai cua phong thi
 		rooms[idOfRoom].status = "2";
 		// gui de thi ve cac phong
@@ -394,24 +398,47 @@ void start(string data, session *userSession) {
 			message += questions[i].question;
 		}
 		message += "#";
+		cout << "message: " << message << endl <<endl << endl;
 		int length = message.length(), sentByte = 0;
-		while (sentByte + 2048 < length) {
-			string substr = message.substr(sentByte, 2048);
+		cout << "length: " << length << endl <<endl;
+		char *messBuff = convertStringToCharArray(message);
+		int indexMessBuff = 0, indexSBuff = 0;
+		char sBuff[2048];
+		while (messBuff[indexMessBuff]) {
+			if (messBuff[indexMessBuff] == '#') {
+				sBuff[indexSBuff] = messBuff[indexMessBuff];
+				sBuff[++indexSBuff] = 0;
+				for (int j = 0; j < player.size(); j++) {
+					sendMessage(player[j].first->sock, sBuff);
+				}
+				break;
+			}
+			if (indexMessBuff % 2047 == 0 && indexMessBuff != 0) {
+				sBuff[indexSBuff] = 0;
+				for (int j = 0; j < player.size(); j++) {
+					sendMessage(player[j].first->sock, sBuff);
+				}
+				indexSBuff = 0;
+				indexMessBuff++;
+				continue;
+			}
+			sBuff[indexSBuff++] = messBuff[indexMessBuff++];
+		}
+
+		/*while (sentByte + 512 < length) {
+			string substr = message.substr(sentByte, 512);
 			char *sendBuff = convertStringToCharArray(substr);
+			cout << "substr: " << substr << endl << endl <<endl;
 			for (int j = 0; j < player.size(); j++) {
 				sendMessage(player[j].first->sock, sendBuff);
 			}
-			sentByte += 2048;
+			sentByte += 512;
 		}
-		string substr = message.substr(sentByte, length-sentByte);
+		string substr = message.substr(sentByte, length - sentByte);
 		char *sendBuff = convertStringToCharArray(substr);
 		for (int j = 0; j < player.size(); j++) {
 			sendMessage(player[j].first->sock, sendBuff);
-		}
-	}
-	else {
-		// thong bao: Ng gui k phai admin
-		sendMessage(userSession->sock, "27#");
+		}*/
 	}
 }
 
@@ -424,8 +451,8 @@ void result(string data, session* userSession) {
 	}
 	message += "#";
 	int length = message.length(), sentByte = 0;
-	while (sentByte + 2048 < length) {
-		string substr = message.substr(sentByte, 2048);
+	while (sentByte + 2047 < length) {
+		string substr = message.substr(sentByte, 2047);
 		char *sendBuff = convertStringToCharArray(substr);
 		for (int j = 0; j < player.size(); j++) {
 			sendMessage(player[j].first->sock, sendBuff);
@@ -549,6 +576,7 @@ int readFileQuestion() {
 		if (i == 3) {
 			string line = temp;
 			tempQuestion->question += line;
+			tempQuestion->question += "/";
 			i++;
 			continue;
 		}

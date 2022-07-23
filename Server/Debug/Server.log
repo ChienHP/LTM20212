@@ -1,20 +1,2 @@
-﻿  Server.cpp
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(105): warning C4101: 'a': unreferenced local variable
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(316): warning C4018: '<': signed/unsigned mismatch
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(320): warning C4018: '<': signed/unsigned mismatch
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(324): warning C4267: 'argument': conversion from 'size_t' to 'char', possible loss of data
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(335): warning C4018: '<': signed/unsigned mismatch
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(364): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(393): warning C4018: '<': signed/unsigned mismatch
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(401): warning C4018: '<': signed/unsigned mismatch
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(408): warning C4018: '<': signed/unsigned mismatch
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(422): warning C4018: '<': signed/unsigned mismatch
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(430): warning C4018: '<': signed/unsigned mismatch
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(437): warning C4018: '<': signed/unsigned mismatch
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(573): warning C4101: 'sendBuff': unreferenced local variable
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(574): warning C4101: 'connSock': unreferenced local variable
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(575): warning C4101: 'clientAddr': unreferenced local variable
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(206): warning C4172: returning address of local variable or temporary: result
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(564): warning C4715: 'readFileQuestion': not all control paths return a value
-  Server.vcxproj -> C:\Users\Admin\documents\visual studio 2015\Projects\BTLProject\Debug\Server.exe
+﻿  Server.vcxproj -> C:\Users\Admin\documents\visual studio 2015\Projects\BTLProject\Debug\Server.exe
   Server.vcxproj -> C:\Users\Admin\documents\visual studio 2015\Projects\BTLProject\Debug\Server.pdb (Full PDB)
