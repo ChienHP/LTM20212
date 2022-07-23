@@ -195,10 +195,12 @@ char * convertStringToCharArray(string data) {
 		result[i] = data[i];
 		i++;
 	}
+	result[i] = 0;
 	return result;
 }
 
 void sendMessage(SOCKET sock, char *sendBuff) {
+	cout << "send: " << sendBuff <<endl;
 	int ret = send(sock, sendBuff, strlen(sendBuff), 0);
 	if (ret == SOCKET_ERROR) {
 		printf("Error %d: Cannot send data.\n", WSAGetLastError());
@@ -297,11 +299,11 @@ void createRoom(string data, session *userSession) {
 	// Thiet lap thong tin cua phong thi va them vao mang PhongThi
 	room *newRoom = new room;
 	newRoom->numberOfQuestion = stoi(numberOfQuestion);
-	newRoom->status = 1;
+	newRoom->status = "1";
 	newRoom->time = time;
 	newRoom->admin = userSession;
 	rooms.push_back(*newRoom);
-	string message = "15 " + to_string(rooms.size() - 1)+"#";
+	string message = "15 " + to_string(rooms.size() - 1)+ "#";
 	char* sendBuff= convertStringToCharArray(message);
 	sendMessage(userSession->sock, sendBuff);
 	return;
@@ -345,8 +347,18 @@ void submit(string data, session * userSession) {
 
 void join(string data, session *userSession) {
 	int idOfRoom = stoi(data);
-	rooms[idOfRoom].resultOfExam.push_back(make_pair(userSession->account, -1));
-	sendMessage(userSession->sock, "14#");
+	if (rooms[idOfRoom].status == "1") {
+		rooms[idOfRoom].resultOfExam.push_back(make_pair(userSession->account, -1));
+		string message = "14 " + rooms[idOfRoom].numberOfQuestion + rooms[idOfRoom].time +"#";
+		char* sendBuff = convertStringToCharArray(message);
+		sendMessage(userSession->sock, sendBuff);
+	}
+	else if (rooms[idOfRoom].status == "2") {
+		sendMessage(userSession->sock, "25#");
+	}
+	else if (rooms[idOfRoom].status == "3") {
+		sendMessage(userSession->sock, "26#");
+	}
 }
 // handle when user logs out
 void logout(session *userSession) {
@@ -401,9 +413,9 @@ void handle(char* sBuff, session *userSession) {
 	if (requestMessageType == "SUBMIT") {
 		submit(data, userSession);
 	}
-	
-
-	sendMessage(userSession->sock, "99#");
+	else {
+		sendMessage(userSession->sock, "99#");
+	}
 	return;
 }
 
@@ -468,10 +480,6 @@ int readFileQuestion() {
 	}
 
 	fileInput.close();
-	for (int i = 0; i < questions.size(); i++) {
-		cout << questions[i].question << endl;
-		cout << "Result: " <<questions[i].result << endl;
-	}
 }
 
 unsigned __stdcall procThread(void *param) {
