@@ -11,6 +11,7 @@
 #include <process.h>
 #include <fstream>
 #include <iostream>
+#include <set>
 #pragma comment(lib, "Ws2_32.lib")
 using namespace std;
 CRITICAL_SECTION criticalSection;
@@ -27,7 +28,7 @@ typedef struct room {
 	string numberOfQuestion;
 	string idOfExam;
 	session * admin;
-	vector<pair<string, int>> resultOfExam;
+	vector<pair<session *, int>> resultOfExam;
 } room;
 // thông tin của 1 câu hỏi
 typedef struct questionInfo {
@@ -36,8 +37,8 @@ typedef struct questionInfo {
 } questionInfo;
 
 typedef struct exam {
-	int numberOfQuestion; // số lượng câu hỏi của đề thi
-	vector<questionInfo> questions; // số thứ tự của câu hỏi trong file lưu trữ
+	string numberOfQuestion; // số lượng câu hỏi của đề thi
+	vector<questionInfo> questions; // câu hỏi
 } exam;
 
 #define BUFF_SIZE 2048
@@ -79,10 +80,16 @@ void submit(string data, session *);
 
 void join(string data, session *);
 
+void start(string data, session *);
+
+void result(string data, session *);
+
 // read file into userAccount
 int readFileAccount();
 
 int readFileQuestion();
+
+
 
 /* procThread - Thread to receive the message from client and process*/
 unsigned __stdcall procThread(void *);
@@ -294,15 +301,29 @@ void practice(session *userSession) {
 void createRoom(string data, session *userSession) {
 	char *result = "";
 	int temp = data.find(' ');
-	string time = data.substr(0, temp);
-	string numberOfQuestion = data.substr(temp + 1);
+	string numberOfQuestion = data.substr(0, temp);
+	string time = data.substr(temp + 1);
 	// Thiet lap thong tin cua phong thi va them vao mang PhongThi
 	room *newRoom = new room;
-	newRoom->numberOfQuestion = stoi(numberOfQuestion);
+	newRoom->numberOfQuestion = numberOfQuestion;
 	newRoom->status = "1";
 	newRoom->time = time;
 	newRoom->admin = userSession;
+	// Random de thi cho phong
+	exam *tempExam = new exam;
+	set<int> idOfQuestions;
+	int maxQuestion = questions.size();
+	while (idOfQuestions.size() < stoi(newRoom->numberOfQuestion)) {
+		int idOfQuestion = rand() % maxQuestion;
+		idOfQuestions.insert(idOfQuestion);
+	}
+	for (int i = 0; i < idOfQuestions.size(); i++) {
+		tempExam->questions.push_back(questions[i]);
+	}
+	exams.push_back(*tempExam);
+	newRoom->idOfExam = exams.size() - 1;
 	rooms.push_back(*newRoom);
+
 	string message = "15 " + to_string(rooms.size() - 1)+ "#";
 	char* sendBuff= convertStringToCharArray(message);
 	sendMessage(userSession->sock, sendBuff);
@@ -341,15 +362,14 @@ void submit(string data, session * userSession) {
 	}
 	int numberOfQuestion = stoi(rooms[idOfRoom].numberOfQuestion);
 	float point = correct / numberOfQuestion * 10;
-	rooms[idOfRoom].resultOfExam.push_back(make_pair(userSession->account, point));
 	// Gửi điểm về client và lưu vào phòng thi
 }
 
 void join(string data, session *userSession) {
 	int idOfRoom = stoi(data);
 	if (rooms[idOfRoom].status == "1") {
-		rooms[idOfRoom].resultOfExam.push_back(make_pair(userSession->account, -1));
-		string message = "14 " + rooms[idOfRoom].numberOfQuestion + rooms[idOfRoom].time +"#";
+		rooms[idOfRoom].resultOfExam.push_back(make_pair(userSession, -1));
+		string message = "14 " + rooms[idOfRoom].numberOfQuestion + " " + rooms[idOfRoom].time +"#";
 		char* sendBuff = convertStringToCharArray(message);
 		sendMessage(userSession->sock, sendBuff);
 	}
@@ -358,6 +378,64 @@ void join(string data, session *userSession) {
 	}
 	else if (rooms[idOfRoom].status == "3") {
 		sendMessage(userSession->sock, "26#");
+	}
+}
+void start(string data, session *userSession) {
+	int idOfRoom = stoi(data);
+	if (rooms[idOfRoom].admin->account == userSession->account) {
+		// chuyen trang thai cua phong thi
+		rooms[idOfRoom].status = "2";
+		// gui de thi ve cac phong
+		vector <pair<session *, int>> player = rooms[idOfRoom].resultOfExam;
+		string message = "16 ";
+		int idOfExam = stoi(rooms[idOfRoom].idOfExam);
+		vector<questionInfo> questions = exams[idOfExam].questions;
+		for (int i = 0; i < questions.size(); i++) {
+			message += questions[i].question;
+		}
+		message += "#";
+		int length = message.length(), sentByte = 0;
+		while (sentByte + 2048 < length) {
+			string substr = message.substr(sentByte, 2048);
+			char *sendBuff = convertStringToCharArray(substr);
+			for (int j = 0; j < player.size(); j++) {
+				sendMessage(player[j].first->sock, sendBuff);
+			}
+			sentByte += 2048;
+		}
+		string substr = message.substr(sentByte, length-sentByte);
+		char *sendBuff = convertStringToCharArray(substr);
+		for (int j = 0; j < player.size(); j++) {
+			sendMessage(player[j].first->sock, sendBuff);
+		}
+	}
+	else {
+		// thong bao: Ng gui k phai admin
+		sendMessage(userSession->sock, "27#");
+	}
+}
+
+void result(string data, session* userSession) {
+	int idOfRoom = stoi(data);
+	string message = "18 ";
+	vector <pair<session *, int>> player = rooms[idOfRoom].resultOfExam;
+	for (int i = 0; i < player.size(); i++) {
+		message += player[i].first->account + " " + to_string(player[i].second) + "/";
+	}
+	message += "#";
+	int length = message.length(), sentByte = 0;
+	while (sentByte + 2048 < length) {
+		string substr = message.substr(sentByte, 2048);
+		char *sendBuff = convertStringToCharArray(substr);
+		for (int j = 0; j < player.size(); j++) {
+			sendMessage(player[j].first->sock, sendBuff);
+		}
+		sentByte += 2048;
+	}
+	string substr = message.substr(sentByte, length - sentByte);
+	char *sendBuff = convertStringToCharArray(substr);
+	for (int j = 0; j < player.size(); j++) {
+		sendMessage(player[j].first->sock, sendBuff);
 	}
 }
 // handle when user logs out
@@ -408,10 +486,13 @@ void handle(char* sBuff, session *userSession) {
 		join(data, userSession);
 	} else
 	if (requestMessageType == "RESULT") {
-
+		result(data, userSession);
 	} else
 	if (requestMessageType == "SUBMIT") {
 		submit(data, userSession);
+	} else
+	if (requestMessageType == "START") {
+		start(data, userSession);
 	}
 	else {
 		sendMessage(userSession->sock, "99#");
