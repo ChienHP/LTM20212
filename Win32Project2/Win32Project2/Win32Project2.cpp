@@ -28,8 +28,7 @@ using namespace std;
 #define VIEW_CREATE_ROOM 11
 #define CREATE_ROOM 12
 #define START 13
-#define SUBMIT 14
-#define RESULT 15
+#define RESULT 14
 
 
 #define SERVER_PORT 5500
