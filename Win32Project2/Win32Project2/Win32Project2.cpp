@@ -56,7 +56,7 @@ void CreateViewListRoom(HWND);
 void ViewCreateRoom(HWND);
 void CreateViewRoom(HWND, string roomID);
 void CreateViewQuestion(HWND);
-void CreateViewResult(HWND);
+void CreateViewResult(HWND, vector<pair<string, string>> players);
 
 HWND hWnd;
 HWND hWndNow;
@@ -75,12 +75,6 @@ HWND hAnswerB;
 HWND hAnswerC;
 HWND hSubmit;
 
-char questions[10000];
-char answer[BUFF_SIZE];
-int indexQuestions = 0;
-int flag = 0;
-string idRoom;
-
 void Send(SOCKET s, char *sBuff, int size, int flags);
 void Receive(SOCKET s, char *rBuff, int size, int flags);
 
@@ -94,6 +88,12 @@ void start(string roomID);
 void submit();
 void result(string roomID);
 
+char questions[10000];
+char answer[BUFF_SIZE];
+int indexQuestions = 0;
+int flag = 0;
+string idRoom;
+
 SOCKET client;
 typedef struct Room
 {
@@ -103,6 +103,7 @@ typedef struct Room
 	string time;
 } Room;
 Room rooms[100];
+
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
@@ -447,9 +448,7 @@ LRESULT CALLBACK ListRoomProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			else {
 				int id = atoi(roomID);
 				string status = rooms[id].status;
-				if (status == "1") {
-					join(roomID);
-				}
+				join(roomID);
 			}
 			break;
 		}
@@ -466,9 +465,7 @@ LRESULT CALLBACK ListRoomProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			else {
 				int id = atoi(roomID);
 				string status = rooms[id].status;
-				if (status == "1") {
-					result(roomID);
-				}
+				result(roomID);
 			}
 			break;
 		}
@@ -693,6 +690,41 @@ LRESULT CALLBACK QuestionProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		return DefWindowProc(hwnd, msg, wParam, lParam);
 	}
 }
+
+void CreateViewResult(HWND hwnd, vector<pair<string, string>> players) {
+	WNDCLASSW swc = { 0 };
+	swc.lpszClassName = L"ViewResult";
+	swc.lpfnWndProc = ResultProc;
+	RegisterClassW(&swc);
+	hWndNow = CreateWindowW(L"ViewResult", L"", WS_VISIBLE | WS_CHILD, 0, 0, 800, 800, hwnd, NULL, NULL, NULL);
+	CreateWindowW(L"button", L"Back", WS_VISIBLE | WS_CHILD, 0, 400, 150, 50, hWndNow, (HMENU)BACK, NULL, NULL);
+	int x = 50;
+	for (auto player : players) {
+		string content = player.first + ": " + player.second;
+		wstring contentStrW = wstring(content.begin(), content.end());
+		const wchar_t* contentW = contentStrW.c_str();
+		CreateWindowW(L"static", contentW, WS_VISIBLE | WS_CHILD, 50, x+=50, 200, 50, hWndNow, NULL, NULL, NULL);
+	}
+}
+
+LRESULT CALLBACK ResultProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+	switch (msg)
+	{
+	case WM_COMMAND:
+		switch (wParam)
+		{
+		case BACK:
+			DestroyWindow(hwnd);
+			CreateViewListRoom(hWnd);
+			break;
+		}
+		break;
+	default:
+		return DefWindowProc(hwnd, msg, wParam, lParam);
+	}
+}
+
 
 /* The send() wrapper function*/
 void Send(SOCKET s, char *in, int size, int flags) {
@@ -961,7 +993,6 @@ void start(string roomID) {
 }
 
 void submit() {
-
 	char sBuff[BUFF_SIZE] = "SUBMIT ";
 	char idC[10];
 	strcpy(idC, idRoom.c_str());
@@ -971,6 +1002,7 @@ void submit() {
 	Send(client, sBuff, BUFF_SIZE, 0);
 	char rBuff[BUFF_SIZE];
 	Receive(client, rBuff, BUFF_SIZE, 0);
+
 	string rBuffStr = string(rBuff);
 	int temp = rBuffStr.find(' ');
 	string replyMessageType = rBuffStr.substr(0, temp);
@@ -1008,12 +1040,43 @@ void result(string roomID) {
 	string data = rBuffStr.substr(temp + 1);
 
 	if (replyMessageType == "18") {
-		string points = "Your points: " + data;
-		wstring pointsStrW = wstring(points.begin(), points.end());
-		const wchar_t* pointsW = pointsStrW.c_str();
-		MessageBox(NULL, pointsW, L"Error!", MB_OK);
+		vector <pair<string, string>> players;
+		int i = 0;
+		int flag = 0;
+		string username, point;
+		while (data[i])
+		{
+			if (data[i] == '/') {
+				flag = 0;
+				players.push_back(make_pair(username, point));
+				username = "";
+				point = "";
+				i++;
+				continue;
+			}
+			if (data[i] == ' ') {
+				flag = 1;
+				i++;
+				continue;
+			}
+			if (flag == 0) {
+				username += data[i];
+			}
+			else {
+				point += data[i];
+			}
+			i++;
+		}
 		DestroyWindow(hWndNow);
-		CreateViewListRoom(hWnd);
+		CreateViewResult(hWnd, players);
+		return;
+	}
+	else if (replyMessageType == "25") {
+		MessageBox(hWnd, L"Phong thi dang dien ra.", L"Error!", MB_OK);
+		return;
+	}
+	else if (replyMessageType == "28") {
+		MessageBox(hWnd, L"Phong thi chua bat dau.", L"Error!", MB_OK);
 		return;
 	}
 	else {
