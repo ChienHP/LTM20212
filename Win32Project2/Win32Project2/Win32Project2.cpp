@@ -11,6 +11,14 @@
 #include <vector>
 #include "process.h"
 using namespace std;
+
+#define WM_SOCKET WM_USER + 1
+#define SERVER_PORT 5500
+#define SERVER_ADDR "127.0.0.1"
+#define BUFF_SIZE 2047
+#define ENDING_DELEMETER "#"
+#pragma comment(lib, "Ws2_32.lib")
+
 #define BACK 100
 #define ANSWER_A 'A'
 #define ANSWER_B 'B'
@@ -32,12 +40,6 @@ using namespace std;
 #define PRACTICE 15
 #define REFRESH 16
 
-#define WM_SOCKET WM_USER + 1
-#define SERVER_PORT 5500
-#define SERVER_ADDR "127.0.0.1"
-#define BUFF_SIZE 2047
-#define ENDING_DELEMETER "#"
-#pragma comment(lib, "Ws2_32.lib")
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK View1Proc(HWND, UINT, WPARAM, LPARAM);
@@ -60,6 +62,20 @@ void CreateViewRoom(HWND);
 void CreateViewQuestion(HWND);
 void CreateViewResult(HWND, vector<pair<string, string>> players);
 
+void Send(SOCKET s, char *sBuff, int size, int flags);
+void Receive(SOCKET s, string &rBuffStr);
+void login(char *username, char *password);
+void Register(char *username, char *password);
+void logout();
+void listRoom();
+void join(string roomID); 
+void createRoom(char *numOfQuestions, char *time);
+void start(string roomID);
+void submit();
+void result(string roomID);
+void practice();
+void processData(string rBuff);
+
 HWND hWnd;
 HWND hWndNow;
 HWND hUsername;
@@ -77,27 +93,11 @@ HWND hAnswerB;
 HWND hAnswerC;
 HWND hSubmit;
 
-void Send(SOCKET s, char *sBuff, int size, int flags);
-void Receive(SOCKET s, char* rBuff);
-
-void login(char *username, char *password);
-void Register(char *username, char *password);
-void logout();
-void listRoom();
-void join(string roomID); 
-void createRoom(char *numOfQuestions, char *time);
-void start(string roomID);
-void submit();
-void result(string roomID);
-void practice();
-void processData(char* rBuff);
-
 char questions[10000];
 char answer[BUFF_SIZE];
 int indexQuestions = 0;
 int flag = 0;
 string idOfRoom;
-
 SOCKET client;
 typedef struct Room
 {
@@ -107,7 +107,7 @@ typedef struct Room
 	string time;
 } Room;
 Room rooms[100];
-
+string rBuffStr_2;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
@@ -151,7 +151,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		return 0;
 	}
 	WSAAsyncSelect(client, hWnd, WM_SOCKET, FD_READ | FD_CLOSE);
-	MessageBox(hWnd, L"Connected server!", L"Error!", MB_OK);
+	MessageBox(hWnd, L"Connected server!", L"Information", MB_ICONINFORMATION);
 
 	// Main message loop:
 	MSG msg = { 0 };
@@ -170,11 +170,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		switch (WSAGETSELECTEVENT(lParam)) {
 		case FD_READ:
 		{
-			int ret;
-			char sBuff[BUFF_SIZE];
-			char rBuff[BUFF_SIZE];
-			Receive(client, rBuff);
-			processData(rBuff);
+			Receive(client, rBuffStr_2);
+			int temp = rBuffStr_2.find(ENDING_DELEMETER);
+			if (temp != -1) {
+				string data = rBuffStr_2.substr(0, temp);
+				processData(data);
+				rBuffStr_2 = rBuffStr_2.substr(temp + 1);
+			}
 		}
 		break;
 
@@ -267,7 +269,7 @@ LRESULT CALLBACK LoginProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			char username[100];
 			wcstombs(username, usernameW, 100);
 			if (strcmp(username, "") == 0) {
-				MessageBox(hWnd, L"Please enter your username.", L"Error!", MB_OK);
+				MessageBox(hWnd, L"Please enter your username.", L"Error!", MB_ICONERROR);
 				break;
 			}
 			wchar_t passwordW[100];
@@ -275,7 +277,7 @@ LRESULT CALLBACK LoginProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			char password[100];
 			wcstombs(password, passwordW, 100);
 			if (strcmp(password, "") == 0) {
-				MessageBox(hWnd, L"Please enter your password.", L"Error!", MB_OK);
+				MessageBox(hWnd, L"Please enter your password.", L"Error!", MB_ICONERROR);
 				break;
 			}
 			else {
@@ -412,12 +414,14 @@ LRESULT CALLBACK ListRoomProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	switch (msg)
 	{
 	case WM_CREATE:
-		hListRoom = CreateWindowW(L"listbox", NULL, WS_CHILD | WS_VISIBLE | LBS_NOTIFY, 10, 10, 150, 120, hwnd, (HMENU)GET_ID, NULL, NULL);
-		hRoomID = CreateWindowW(L"static", L"", WS_CHILD, 200, 10, 120, 45, hwnd,NULL, NULL, NULL);
-		hJoin = CreateWindowW(L"Button", L"Join", WS_CHILD | WS_VISIBLE, 300, 10, 120, 45, hwnd, (HMENU)JOIN, NULL, NULL);
-		hResult = CreateWindowW(L"Button", L"Result", WS_CHILD | WS_VISIBLE, 500, 10, 120, 45, hwnd, (HMENU)RESULT, NULL, NULL);
-		CreateWindowW(L"Button", L"Create new room", WS_CHILD | WS_VISIBLE, 300, 50, 120, 45, hwnd, (HMENU)VIEW_CREATE_ROOM, NULL, NULL);
-		CreateWindowW(L"Button", L"Back", WS_CHILD | WS_VISIBLE, 400, 50, 120, 45, hwnd, (HMENU)BACK, NULL, NULL);
+		hListRoom = CreateWindowW(L"listbox", NULL, WS_CHILD | WS_VISIBLE | LBS_NOTIFY, 10, 10, 150, 200, hwnd, (HMENU)GET_ID, NULL, NULL);
+		hRoomID = CreateWindowW(L"static", L"", WS_CHILD, 500, 300, 100, 45, hwnd,NULL, NULL, NULL);
+		CreateWindowW(L"button", L"Refresh", WS_CHILD | WS_VISIBLE, 170, 10, 100, 45, hwnd, (HMENU)REFRESH, NULL, NULL);
+		hJoin = CreateWindowW(L"Button", L"Join", WS_CHILD | WS_VISIBLE, 170, 55, 100, 45, hwnd, (HMENU)JOIN, NULL, NULL);
+		hResult = CreateWindowW(L"Button", L"Result", WS_CHILD | WS_VISIBLE, 170, 100, 100, 45, hwnd, (HMENU)RESULT, NULL, NULL);
+		CreateWindowW(L"Button", L"Back", WS_CHILD | WS_VISIBLE, 170, 145, 100, 45, hwnd, (HMENU)BACK, NULL, NULL);
+
+		CreateWindowW(L"Button", L"Create new room", WS_CHILD | WS_VISIBLE, 10, 220, 150, 45, hwnd, (HMENU)VIEW_CREATE_ROOM, NULL, NULL);
 
 		for (int i = 0; i < ARRAYSIZE(rooms); i++)
 		{
@@ -426,15 +430,16 @@ LRESULT CALLBACK ListRoomProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			}
 			string status;
 			if (rooms[i].status == "1") {
-				 status = "Chua bat dau";
+				 status = "Not yet started";
 			}
 			else if (rooms[i].status == "2") {
-				status = "Dang dien ra";
+				status = "In process";
 			}
 			else {
-				status = "Da ket thuc";
+				status = "Finished";
 			}
-			string content = rooms[i].id + status;
+
+			string content = "Room" + rooms[i].id + ": " + status;
 			wstring contentW = wstring(content.begin(), content.end());
 			const wchar_t* roomW = contentW.c_str();
 			SendMessage(hListRoom, LB_ADDSTRING, 0, (LPARAM)roomW);
@@ -491,6 +496,8 @@ LRESULT CALLBACK ListRoomProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			DestroyWindow(hwnd);
 			ViewCreateRoom(hWnd);
 			break;
+		case REFRESH:
+			listRoom();
 		case BACK:
 			DestroyWindow(hwnd);
 			CreateView2(hWnd);
@@ -519,7 +526,7 @@ LRESULT CALLBACK CreateRoomProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 		hNumOfQuestions = CreateWindowW(L"edit", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, 100, 0, 100, 50, hwnd, NULL, NULL, NULL);
 		CreateWindowW(L"static", L"Time: ", WS_VISIBLE | WS_CHILD, 0, 60, 80, 50, hwnd, NULL, NULL, NULL);
 		hTime = CreateWindowW(L"edit", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, 100, 60, 100, 50, hwnd, NULL, NULL, NULL);
-		CreateWindowW(L"button", L"Create New Room", WS_VISIBLE | WS_CHILD | WS_BORDER, 100, 120, 50, 50, hwnd, (HMENU) CREATE_ROOM, NULL, NULL);
+		CreateWindowW(L"button", L"Create", WS_VISIBLE | WS_CHILD | WS_BORDER, 100, 120, 50, 50, hwnd, (HMENU) CREATE_ROOM, NULL, NULL);
 		CreateWindowW(L"button", L"Back", WS_VISIBLE | WS_CHILD | WS_BORDER, 152, 120, 50, 50, hwnd, (HMENU)BACK, NULL, NULL);
 	case WM_COMMAND:
 		switch (wParam)
@@ -531,7 +538,7 @@ LRESULT CALLBACK CreateRoomProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 			char numOfQuestions[10];
 			wcstombs(numOfQuestions, numOfQuestionsW, 10);
 			if (strcmp(numOfQuestions, "") == 0) {
-				MessageBox(hWnd, L"Please enter number of questions.", L"Error!", MB_OK);
+				MessageBox(hWnd, L"Please enter number of questions.", L"Error!", MB_ICONERROR);
 				break;
 			}
 
@@ -540,7 +547,7 @@ LRESULT CALLBACK CreateRoomProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 			char time[10];
 			wcstombs(time, timeW, 10);
 			if (strcmp(time, "") == 0) {
-				MessageBox(hWnd, L"Please enter time.", L"Error!", MB_OK);
+				MessageBox(hWnd, L"Please enter time.", L"Error!", MB_ICONERROR);
 				break;
 			}
 
@@ -712,14 +719,15 @@ void CreateViewResult(HWND hwnd, vector<pair<string, string>> players) {
 	swc.lpfnWndProc = ResultProc;
 	RegisterClassW(&swc);
 	hWndNow = CreateWindowW(L"ViewResult", L"", WS_VISIBLE | WS_CHILD, 0, 0, 800, 800, hwnd, NULL, NULL, NULL);
-	CreateWindowW(L"button", L"Back", WS_VISIBLE | WS_CHILD, 0, 50, 150, 50, hWndNow, (HMENU)BACK, NULL, NULL);
-	int x = 50;
+	int x = -20;
 	for (auto player : players) {
 		string content = player.first + ": " + player.second;
 		wstring contentStrW = wstring(content.begin(), content.end());
 		const wchar_t* contentW = contentStrW.c_str();
-		CreateWindowW(L"static", contentW, WS_VISIBLE | WS_CHILD, 50, x+=50, 200, 50, hWndNow, NULL, NULL, NULL);
+		CreateWindowW(L"static", contentW, WS_VISIBLE | WS_CHILD, 10, x+=30, 200, 30, hWndNow, NULL, NULL, NULL);
 	}
+	CreateWindowW(L"button", L"Back", WS_VISIBLE | WS_CHILD, 10, x+=50, 100, 30, hWndNow, (HMENU)BACK, NULL, NULL);
+
 }
 
 LRESULT CALLBACK ResultProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -745,35 +753,47 @@ void Send(SOCKET s, char *in, int size, int flags) {
 	strcat(in, ENDING_DELEMETER);
 	int n = send(s, in, size, flags);
 	if (n == SOCKET_ERROR) {
-		MessageBox(NULL, L"Error: Cannot send data.", L"Error!", MB_OK);
+		MessageBox(NULL, L"Error: Cannot send data.", L"Information", MB_ICONINFORMATION);
 	}
 }
 
 /* The recv() wrapper function */
-void Receive(SOCKET s, char *out) {
-	int outIndex = 0;
-	while (true) {
-		int i = 0;
-		char rBuff[BUFF_SIZE];
-		int n = recv(s, rBuff, BUFF_SIZE, 0);
+//void Receive(SOCKET s, string &rBuffStr) {
+//	while (true) {
+//		int i = 0;
+//		char rBuff[2048];
+//		int n = recv(s, rBuff, 2048, 0);
+//		if (n == SOCKET_ERROR) {
+//			MessageBox(hWnd, L"Error: Cannot receive data.", L"Error", MB_ICONERROR);
+//			break;
+//		}
+//		else if (n > 0) {
+//			rBuff[n] = '\0';
+//			while (rBuff[i] != '\0') {
+//				if (rBuff[i] == '#') {
+//					return;
+//				}
+//				string s(1, rBuff[i++]);
+//				rBuffStr += s;
+//			}
+//		}
+//	}
+//
+//
+//} 
+
+void Receive(SOCKET s, string &rBuffStr) {
+		char rBuff[2048];
+		int n = recv(s, rBuff, 2048, 0);
 		if (n == SOCKET_ERROR) {
-			MessageBox(hWnd, L"Error: Cannot receive data.", L"Error!", MB_OK);
-			break;
+			MessageBox(hWnd, L"Error: Cannot receive data.", L"Error", MB_ICONERROR);
 		}
 		else if (n > 0) {
 			rBuff[n] = '\0';
-			while (rBuff[i] != '\0') {
-				if (rBuff[i] == '#') {
-					out[outIndex] = '\0';
-					return;
-				}
-				out[outIndex++] = rBuff[i++];
+			rBuffStr += string(rBuff);
 			}
-
 		}
-	}
 
-} 
 
 // Send username and password to login
 void login(char *username, char *password) {
@@ -869,44 +889,45 @@ void practice() {
 	return;
 }
 
-void processData(char *rBuff) {
-	string rBuffStr = (string)rBuff;
+void processData(string rBuffStr) {
 	int temp = rBuffStr.find(' ');
 	string replyMessageType = rBuffStr.substr(0, temp);
 	string data = rBuffStr.substr(temp + 1);
 
+	
+
 	// Process register reply message
 	if (replyMessageType == "10") {
-		MessageBox(NULL, L"Register successfully.", L"Error!", MB_OK);
+		MessageBox(NULL, L"Register successfully.", L"Information", MB_ICONINFORMATION);
 		DestroyWindow(hWndNow);
 		CreateView1(hWnd);
 	}
 	else if (replyMessageType == "20") {
-		MessageBox(NULL, L"This username already exists.", L"Error!", MB_OK);
+		MessageBox(NULL, L"This username already exists.", L"Information", MB_ICONINFORMATION);
 	}
 
 	// Process login reply message
 	else if (replyMessageType == "11") {
-		MessageBox(NULL, L"Login successfully.", L"Error!", MB_OK);
+		MessageBox(NULL, L"Login successfully.", L"Information", MB_ICONINFORMATION);
 		DestroyWindow(hWndNow);
 		CreateView2(hWnd);
 	}
 	else if (replyMessageType == "21") {
-		MessageBox(NULL, L"Password does not correct.", L"Error!", MB_OK);
+		MessageBox(NULL, L"Password does not correct.", L"Information", MB_ICONINFORMATION);
 	}
 	else if (replyMessageType == "22") {
-		MessageBox(NULL, L"This account is already logged in another client.", L"Error!", MB_OK);
+		MessageBox(NULL, L"This account is already logged in another client.", L"Information", MB_ICONINFORMATION);
 	}
 	else if (replyMessageType == "23") {
-		MessageBox(NULL, L"This username does not exists.", L"Error!", MB_OK);
+		MessageBox(NULL, L"This username does not exists.", L"Information", MB_ICONINFORMATION);
 	}
 	else if (replyMessageType == "24") {
-		MessageBox(NULL, L"you are logged in.", L"Error!", MB_OK);
+		MessageBox(NULL, L"you are logged in.", L"Information", MB_ICONINFORMATION);
 	}
 
 	// Process logout reply message
 	else if (replyMessageType == "12") {
-		MessageBox(NULL, L"Logout successfully.", L"Error!", MB_OK);
+		MessageBox(NULL, L"Logout successfully.", L"Information", MB_ICONINFORMATION);
 		DestroyWindow(hWndNow);
 		CreateView1(hWnd);
 	}
@@ -956,16 +977,16 @@ void processData(char *rBuff) {
 		CreateViewRoom(hWnd);
 	}
 	else if (replyMessageType == "25") {
-		MessageBox(hWnd, L"Phong thi dang dien ra.", L"Error!", MB_OK);
+		MessageBox(hWnd, L"This room is in progress.", L"Information", MB_ICONINFORMATION);
 	}
 	else if (replyMessageType == "26") {
-		MessageBox(hWnd, L"Phong thi da ket thuc.", L"Error!", MB_OK);
+		MessageBox(hWnd, L"This room has finished.", L"Information", MB_ICONINFORMATION);
 	}
 
 	// Process create room reply message
 	else if (replyMessageType == "15") {
 		string roomID = data;
-		MessageBox(NULL, L"Create room successfully.", L"Error!", MB_OK);
+		MessageBox(NULL, L"Create room successfully.", L"Information", MB_ICONINFORMATION);
 		join(roomID);
 	}
 
@@ -977,7 +998,7 @@ void processData(char *rBuff) {
 		return;
 	}
 	else if (replyMessageType == "27") {
-		MessageBox(NULL, L"You are not the owner of the room", L"Error!", MB_OK);
+		MessageBox(NULL, L"You are not the owner of the room", L"Information", MB_ICONINFORMATION);
 	}
 	
 	// Process submit reply message
@@ -985,14 +1006,14 @@ void processData(char *rBuff) {
 		string points = "Your points: " + data;
 		wstring pointsStrW = wstring(points.begin(), points.end());
 		const wchar_t* pointsW = pointsStrW.c_str();
-		MessageBox(NULL, pointsW, L"Error!", MB_OK);
+		MessageBox(NULL, pointsW, L"Information", MB_ICONINFORMATION);
 		indexQuestions = 0;
 		questions[0] = '\0';
 		answer[0] = '\0';
 		listRoom();
 	}
 	else if (replyMessageType == "28") {
-		MessageBox(NULL, L"Phong thi chua bat dau", L"Error!", MB_OK);
+		MessageBox(NULL, L"This room has not begin yet", L"Information", MB_ICONINFORMATION);
 	}
 	else if (replyMessageType == "SUBMITNOTIFICATION") {
 		submit();
@@ -1040,7 +1061,7 @@ void processData(char *rBuff) {
 	}
 	
 	else if (replyMessageType == "99") {
-		MessageBox(NULL, L"Try again later", L"Error!", MB_OK);
+		MessageBox(NULL, L"Try again later", L"Information", MB_ICONINFORMATION);
 	}
 
 	return;
