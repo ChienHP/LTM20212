@@ -379,7 +379,8 @@ LRESULT CALLBACK View2Proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		switch (wParam)
 		{
 		case VIEW_LIST_ROOM:
-			listRoom();
+			DestroyWindow(hWndNow);
+			CreateViewListRoom(hWnd);
 			break;
 		
 		case PRACTICE:
@@ -410,6 +411,7 @@ LRESULT CALLBACK ListRoomProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	switch (msg)
 	{
 	case WM_CREATE:
+		listRoom();
 		hListRoom = CreateWindowW(L"listbox", NULL, WS_CHILD | WS_VISIBLE | LBS_NOTIFY, 10, 10, 150, 120, hwnd, (HMENU)GET_ID, NULL, NULL);
 		hRoomID = CreateWindowW(L"static", L"", WS_CHILD | WS_VISIBLE, 200, 10, 120, 45, hwnd,NULL, NULL, NULL);
 		hJoin = CreateWindowW(L"Button", L"Join", WS_CHILD | WS_VISIBLE, 300, 10, 120, 45, hwnd, (HMENU)JOIN, NULL, NULL);
@@ -744,9 +746,11 @@ LRESULT CALLBACK ResultProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 void Send(SOCKET s, char *in, int size, int flags) {
 	strcat(in, ENDING_DELEMETER);
 	int n = send(s, in, size, flags);
-	if (n == SOCKET_ERROR)
+	if (n == SOCKET_ERROR) {
 		MessageBox(hWnd, L"Error: Cannot send data.", L"Error!", MB_OK);
+	}
 }
+
 /* The recv() wrapper function */
 void Receive(SOCKET s, char *out) {
 	int outIndex = 0;
@@ -940,8 +944,6 @@ void processData(char *rBuff) {
 			}
 			i++;
 		}
-		DestroyWindow(hWndNow);
-		CreateViewListRoom(hWnd);
 	}
 
 	// Process join reply message
@@ -1032,5 +1034,9 @@ void processData(char *rBuff) {
 		return;
 	}
 	
+	else if (replyMessageType == "99") {
+		MessageBox(NULL, L"Try again later", L"Error!", MB_OK);
+	}
+
 	return;
 }

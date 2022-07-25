@@ -2,16 +2,16 @@
 c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(191): warning C4060: switch statement contains no 'case' or 'default' labels
 c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(173): warning C4101: 'sBuff': unreferenced local variable
 c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(172): warning C4101: 'ret': unreferenced local variable
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(239): warning C4715: 'View1Proc': not all control paths return a value
 c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(161): warning C4715: 'WinMain': not all control paths return a value
 c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(207): warning C4715: 'WndProc': not all control paths return a value
-c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(239): warning C4715: 'View1Proc': not all control paths return a value
 c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(295): warning C4715: 'LoginProc': not all control paths return a value
-c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(398): warning C4715: 'View2Proc': not all control paths return a value
 c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(361): warning C4715: 'RegisterProc': not all control paths return a value
-c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(558): warning C4715: 'CreateRoomProc': not all control paths return a value
-c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(610): warning C4715: 'RoomProc': not all control paths return a value
-c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(501): warning C4715: 'ListRoomProc': not all control paths return a value
-c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(706): warning C4715: 'QuestionProc': not all control paths return a value
-c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(740): warning C4715: 'ResultProc': not all control paths return a value
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(399): warning C4715: 'View2Proc': not all control paths return a value
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(612): warning C4715: 'RoomProc': not all control paths return a value
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(560): warning C4715: 'CreateRoomProc': not all control paths return a value
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(503): warning C4715: 'ListRoomProc': not all control paths return a value
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(708): warning C4715: 'QuestionProc': not all control paths return a value
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\win32project2\win32project2\win32project2.cpp(742): warning C4715: 'ResultProc': not all control paths return a value
   Win32Project2.vcxproj -> C:\Users\Chien\Desktop\Lap trinh mang (IT4060)\Project MMT\Win32Project2\Debug\Win32Project2.exe
   Win32Project2.vcxproj -> C:\Users\Chien\Desktop\Lap trinh mang (IT4060)\Project MMT\Win32Project2\Debug\Win32Project2.pdb (Full PDB)
