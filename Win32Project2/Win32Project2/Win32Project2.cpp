@@ -747,7 +747,7 @@ void Send(SOCKET s, char *in, int size, int flags) {
 	strcat(in, ENDING_DELEMETER);
 	int n = send(s, in, size, flags);
 	if (n == SOCKET_ERROR) {
-		MessageBox(hWnd, L"Error: Cannot send data.", L"Error!", MB_OK);
+		MessageBox(NULL, L"Error: Cannot send data.", L"Error!", MB_OK);
 	}
 }
 
