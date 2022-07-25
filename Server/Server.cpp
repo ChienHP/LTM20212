@@ -63,6 +63,20 @@ void login(string ,session *);
 // handle when user posts
 void practice(string ,session *);
 
+exam *randomQuestion(int numberOfQuestion) {
+	exam *tempExam = new exam;
+	set<int> idOfQuestions;
+	int maxQuestion = questions.size();
+	while (idOfQuestions.size() < numberOfQuestion) {
+		int idOfQuestion = rand() % maxQuestion;
+		idOfQuestions.insert(idOfQuestion);
+	}
+	for (int i : idOfQuestions) {
+		tempExam->questions.push_back(questions[i]);
+	}
+	return tempExam;
+}
+
 // handle when user logs out
 void logout(session *);
 
@@ -94,6 +108,7 @@ int readFileQuestion();
 /* procThread - Thread to receive the message from client and process*/
 unsigned __stdcall procThread(void *);
 
+unsigned __stdcall clockThread(void *);
 
 int main(int argc, char* argv[])
 {
@@ -310,16 +325,8 @@ void createRoom(string data, session *userSession) {
 	newRoom->time = time;
 	newRoom->admin = userSession;
 	// Random de thi cho phong
-	exam *tempExam = new exam;
-	set<int> idOfQuestions;
-	int maxQuestion = questions.size();
-	while (idOfQuestions.size() < stoi(newRoom->numberOfQuestion)) {
-		int idOfQuestion = rand() % maxQuestion;
-		idOfQuestions.insert(idOfQuestion);
-	}
-	for (int i : idOfQuestions) {
-		tempExam->questions.push_back(questions[i]);
-	}
+
+	exam *tempExam = randomQuestion(stoi(numberOfQuestion));
 	exams.push_back(*tempExam);
 	newRoom->idOfExam = to_string(exams.size() - 1);
 	rooms.push_back(*newRoom);
@@ -381,7 +388,9 @@ void submit(string data, session * userSession) {
 void join(string data, session *userSession) {
 	int idOfRoom = stoi(data);
 	if (rooms[idOfRoom].status == "1") {
-		rooms[idOfRoom].resultOfExam.push_back(make_pair(userSession, -1));
+		if (rooms[idOfRoom].admin->account.compare(userSession->account)) {
+			rooms[idOfRoom].resultOfExam.push_back(make_pair(userSession, -1));
+		}
 		string message = "14 " + rooms[idOfRoom].numberOfQuestion + " " + rooms[idOfRoom].time +"#";
 		char* sendBuff = convertStringToCharArray(message);
 		sendMessage(userSession->sock, sendBuff);
@@ -396,6 +405,7 @@ void join(string data, session *userSession) {
 void start(string data, session *userSession) {
 	int idOfRoom = stoi(data);
 	if (!rooms[idOfRoom].admin->account.compare(userSession->account) || rooms[idOfRoom].status == "2") {
+		_beginthreadex(0, 0, clockThread, (void *)&rooms[idOfRoom], 0, 0);
 		rooms[idOfRoom].status = "2";
 		// gui de thi ve cac phong
 		vector <pair<session *, int>> player = rooms[idOfRoom].resultOfExam;
@@ -410,21 +420,64 @@ void start(string data, session *userSession) {
 		char *messBuff = convertStringToCharArray(message);
 		int indexMessBuff = 0, indexSBuff = 0;
 		char sBuff[2048];
+		for (int i = 0; player.size(); i++) {
+			while (messBuff[indexMessBuff]) {
+				if (messBuff[indexMessBuff] == '#') {
+					sBuff[indexSBuff] = messBuff[indexMessBuff];
+					sBuff[++indexSBuff] = 0;
+					sendMessage(player[i].first->sock, sBuff);
+					break;
+				}
+				if (indexMessBuff % 2046 == 0 && indexMessBuff != 0) {
+					sBuff[indexSBuff] = messBuff[indexMessBuff];
+					sBuff[indexSBuff + 1] = 0;
+					sendMessage(player[i].first->sock, sBuff);
+					indexSBuff = 0;
+					indexMessBuff++;
+					continue;
+				}
+				sBuff[indexSBuff++] = messBuff[indexMessBuff++];
+			}
+		}
+	}
+	else {
+		
+		// thong bao: Ng gui k phai admin
+		sendMessage(userSession->sock, "27#");
+	}
+}
+
+void result(string data, session* userSession) {
+	int idOfRoom = stoi(data);
+	if (rooms[idOfRoom].status == "1") {
+		sendMessage(userSession->sock, "28#");
+	}
+	else if (rooms[idOfRoom].status == "2") {
+		sendMessage(userSession->sock, "25#");
+	}
+	else if (rooms[idOfRoom].status == "3") {
+		string message = "18 ";
+		cout << "OK";
+		vector <pair<session *, int>> player = rooms[idOfRoom].resultOfExam;
+		for (int i = 0; i < player.size(); i++) {
+			message += player[i].first->account + " " + to_string(player[i].second) + "/";
+		}
+		message += "#";
+		int length = message.length(), sentByte = 0;
+		char *messBuff = convertStringToCharArray(message);
+		int indexMessBuff = 0, indexSBuff = 0;
+		char sBuff[2048];
 		while (messBuff[indexMessBuff]) {
 			if (messBuff[indexMessBuff] == '#') {
 				sBuff[indexSBuff] = messBuff[indexMessBuff];
 				sBuff[++indexSBuff] = 0;
-				for (int j = 0; j < player.size(); j++) {
-					sendMessage(player[j].first->sock, sBuff);
-				}
+				sendMessage(userSession->sock, sBuff);
 				break;
 			}
 			if (indexMessBuff % 2046 == 0 && indexMessBuff != 0) {
 				sBuff[indexSBuff] = messBuff[indexMessBuff];
 				sBuff[indexSBuff + 1] = 0;
-				for (int j = 0; j < player.size(); j++) {
-					sendMessage(player[j].first->sock, sBuff);
-				}
+				sendMessage(userSession->sock, sBuff);
 				indexSBuff = 0;
 				indexMessBuff++;
 				continue;
@@ -432,66 +485,7 @@ void start(string data, session *userSession) {
 			sBuff[indexSBuff++] = messBuff[indexMessBuff++];
 		}
 	}
-	else {
-		
-		// thong bao: Ng gui k phai admin
-		sendMessage(userSession->sock, "27#");
-		/*while (sentByte + 512 < length) {
-			string substr = message.substr(sentByte, 512);
-			char *sendBuff = convertStringToCharArray(substr);
-			cout << "substr: " << substr << endl << endl <<endl;
-			for (int j = 0; j < player.size(); j++) {
-				sendMessage(player[j].first->sock, sendBuff);
-			}
-			sentByte += 512;
-		}
-		string substr = message.substr(sentByte, length - sentByte);
-		char *sendBuff = convertStringToCharArray(substr);
-		for (int j = 0; j < player.size(); j++) {
-			sendMessage(player[j].first->sock, sendBuff);
-		}*/
-	}
-}
 
-void result(string data, session* userSession) {
-	int idOfRoom = stoi(data);
-	/*if (rooms[idOfRoom].status == "1") {
-		sendMessage(userSession->sock, "28#");
-	}
-	else if (rooms[idOfRoom].status == "2") {
-		sendMessage(userSession->sock, "25#");
-	}
-	else if (rooms[idOfRoom].status == "3") {
-		
-	}*/
-	string message = "18 ";
-	cout << "OK";
-	vector <pair<session *, int>> player = rooms[idOfRoom].resultOfExam;
-	for (int i = 0; i < player.size(); i++) {
-		message += player[i].first->account + " " + to_string(player[i].second) + "/";
-	}
-	message += "#";
-	int length = message.length(), sentByte = 0;
-	char *messBuff = convertStringToCharArray(message);
-	int indexMessBuff = 0, indexSBuff = 0;
-	char sBuff[2048];
-	while (messBuff[indexMessBuff]) {
-		if (messBuff[indexMessBuff] == '#') {
-			sBuff[indexSBuff] = messBuff[indexMessBuff];
-			sBuff[++indexSBuff] = 0;
-			sendMessage(userSession->sock, sBuff);
-			break;
-		}
-		if (indexMessBuff % 2046 == 0 && indexMessBuff != 0) {
-			sBuff[indexSBuff] = messBuff[indexMessBuff];
-			sBuff[indexSBuff + 1] = 0;
-			sendMessage(userSession->sock, sBuff);
-			indexSBuff = 0;
-			indexMessBuff++;
-			continue;
-		}
-		sBuff[indexSBuff++] = messBuff[indexMessBuff++];
-	}
 }
 // handle when user logs out
 void logout(session *userSession) {
@@ -748,3 +742,19 @@ unsigned __stdcall procThread(void *param) {
 	}
 	return 0;
 }
+
+unsigned __stdcall clockThread(void *examRoom) {
+	room *presentRoom = (room *)examRoom;
+	int time = stoi(presentRoom->time);
+	int second = time * 60;
+	Sleep(second);
+	vector<pair<session *, int>> player = presentRoom->resultOfExam;
+	for (int i = 0; i < player.size(); i++) {
+		if (player[i].second == -1) {
+			sendMessage(player[i].first->sock, "SUBMITNOTIFICATION#");
+		}
+	}
+	presentRoom->status = "3";
+	return 0;
+};
+
