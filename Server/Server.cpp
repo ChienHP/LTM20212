@@ -103,7 +103,7 @@ int readFileAccount();
 
 int readFileQuestion();
 
-
+exam *examPractice;
 
 /* procThread - Thread to receive the message from client and process*/
 unsigned __stdcall procThread(void *);
@@ -310,9 +310,9 @@ void login(string data, session *userSession) {
 
 // handle when user post
 void practice(session *userSession) {
-	exam *tempExam = randomQuestion(20);
-	string message = "16 ";
-	for (int i = 0; i < tempExam->questions.size(); i++) {
+	examPractice = randomQuestion(10);
+	string message = "19 ";
+	for (int i = 0; i < examPractice->questions.size(); i++) {
 		message += questions[i].question;
 	}
 	message += "#";
@@ -381,30 +381,47 @@ void submit(string data, session * userSession) {
 	int temp = data.find(' ');
 	int idOfRoom = stoi(data.substr(0, temp));
 	string result = data.substr(temp + 1);
-	int idOfExam = stoi(rooms[idOfRoom].idOfExam);
-	int indexOfResult = 0;
-	int correct = 0;
-	while (result[indexOfResult]) {
-		if (result[indexOfResult] == exams[idOfExam].questions[indexOfResult].result) {
-			correct++;
+	if (idOfRoom == -1) {
+		int indexOfResult = 0;
+		int correct = 0;
+		while (result[indexOfResult]) {
+			if (result[indexOfResult] == examPractice->questions[indexOfResult].result) {
+				correct++;
+			}
+			indexOfResult++;
 		}
-		indexOfResult++;
+		string message = "17 ";
+		message += to_string(correct) + "#";
+		char *sendBuff = convertStringToCharArray(message);
+		sendMessage(userSession->sock, sendBuff);
+		// Gửi điểm về client và lưu vào phòng thi
 	}
-	int numberOfQuestion = stoi(rooms[idOfRoom].numberOfQuestion);
-	float point = (float)correct*10 / numberOfQuestion;
-	vector<pair<session*, int>> player = rooms[idOfRoom].resultOfExam;
-	for (int i = 0; i < player.size(); i++) {
-		cout << player[i].first->account << " " << userSession->account << endl;
-		if (player[i].first->account.compare(userSession->account)) {
-			player[i].second = point;
-			break;
+	else {
+		int idOfExam = stoi(rooms[idOfRoom].idOfExam);
+		int indexOfResult = 0;
+		int correct = 0;
+		while (result[indexOfResult]) {
+			if (result[indexOfResult] == exams[idOfExam].questions[indexOfResult].result) {
+				correct++;
+			}
+			indexOfResult++;
 		}
+		int numberOfQuestion = stoi(rooms[idOfRoom].numberOfQuestion);
+		float point = (float)correct * 10 / numberOfQuestion;
+		vector<pair<session*, int>> player = rooms[idOfRoom].resultOfExam;
+		for (int i = 0; i < player.size(); i++) {
+			cout << player[i].first->account << " " << userSession->account << endl;
+			if (!player[i].first->account.compare(userSession->account)) {
+				player[i].second = point;
+				break;
+			}
+		}
+		string message = "17 ";
+		message += to_string(point) + "#";
+		char *sendBuff = convertStringToCharArray(message);
+		sendMessage(userSession->sock, sendBuff);
+		// Gửi điểm về client và lưu vào phòng thi
 	}
-	string message = "17 ";
-	message += to_string(point) + "#";
-	char *sendBuff = convertStringToCharArray(message);
-	sendMessage(userSession->sock, sendBuff);
-	// Gửi điểm về client và lưu vào phòng thi
 }
 
 void join(string data, session *userSession) {
@@ -769,7 +786,7 @@ unsigned __stdcall clockThread(void *examRoom) {
 	room *presentRoom = (room *)examRoom;
 	int time = stoi(presentRoom->time);
 	int second = time * 60;
-	Sleep(second);
+	Sleep(second * 1000);
 	vector<pair<session *, int>> player = presentRoom->resultOfExam;
 	for (int i = 0; i < player.size(); i++) {
 		if (player[i].second == -1) {

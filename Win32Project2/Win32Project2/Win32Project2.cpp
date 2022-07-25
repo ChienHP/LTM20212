@@ -30,6 +30,7 @@ using namespace std;
 #define START 13
 #define RESULT 14
 #define PRACTICE 15
+#define REFRESH 16
 
 #define WM_SOCKET WM_USER + 1
 #define SERVER_PORT 5500
@@ -77,7 +78,7 @@ HWND hAnswerC;
 HWND hSubmit;
 
 void Send(SOCKET s, char *sBuff, int size, int flags);
-void Receive(SOCKET s, char *rBuff);
+void Receive(SOCKET s, char* rBuff);
 
 void login(char *username, char *password);
 void Register(char *username, char *password);
@@ -379,14 +380,13 @@ LRESULT CALLBACK View2Proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		switch (wParam)
 		{
 		case VIEW_LIST_ROOM:
-			DestroyWindow(hWndNow);
-			CreateViewListRoom(hWnd);
+			listRoom();
+
 			break;
 		
 		case PRACTICE:
 			practice();
-			DestroyWindow(hwnd);
-			CreateViewQuestion(hWnd);
+			
 			break;
 		case LOGOUT:
 			logout();
@@ -404,6 +404,7 @@ void CreateViewListRoom(HWND hwnd) {
 	swc.lpfnWndProc = ListRoomProc;
 	RegisterClassW(&swc);
 	hWndNow = CreateWindowW(L"ViewListRoom", L"", WS_VISIBLE | WS_CHILD, 0, 0, 800, 800, hwnd, NULL, NULL, NULL);
+
 }
 
 LRESULT CALLBACK ListRoomProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -411,9 +412,8 @@ LRESULT CALLBACK ListRoomProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	switch (msg)
 	{
 	case WM_CREATE:
-		listRoom();
 		hListRoom = CreateWindowW(L"listbox", NULL, WS_CHILD | WS_VISIBLE | LBS_NOTIFY, 10, 10, 150, 120, hwnd, (HMENU)GET_ID, NULL, NULL);
-		hRoomID = CreateWindowW(L"static", L"", WS_CHILD | WS_VISIBLE, 200, 10, 120, 45, hwnd,NULL, NULL, NULL);
+		hRoomID = CreateWindowW(L"static", L"", WS_CHILD, 200, 10, 120, 45, hwnd,NULL, NULL, NULL);
 		hJoin = CreateWindowW(L"Button", L"Join", WS_CHILD | WS_VISIBLE, 300, 10, 120, 45, hwnd, (HMENU)JOIN, NULL, NULL);
 		hResult = CreateWindowW(L"Button", L"Result", WS_CHILD | WS_VISIBLE, 500, 10, 120, 45, hwnd, (HMENU)RESULT, NULL, NULL);
 		CreateWindowW(L"Button", L"Create new room", WS_CHILD | WS_VISIBLE, 300, 50, 120, 45, hwnd, (HMENU)VIEW_CREATE_ROOM, NULL, NULL);
@@ -549,8 +549,7 @@ LRESULT CALLBACK CreateRoomProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 		}
 
 		case BACK:
-			DestroyWindow(hwnd);
-			CreateViewListRoom(hWnd);
+			listRoom();
 			break;
 		}
 		break;
@@ -601,8 +600,7 @@ LRESULT CALLBACK RoomProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 		case BACK:
-			DestroyWindow(hwnd);
-			CreateViewListRoom(hWnd);
+			listRoom();
 			break;
 		}
 		break;
@@ -625,6 +623,7 @@ void CreateViewQuestion(HWND hwnd) {
 	while (true) {
 		if (questions[indexQuestions] == '\0') {
 			submit();
+			break;
 		}
 		if (questions[indexQuestions] == '/') {
 			question[indexQuestion] = '\0';
@@ -731,8 +730,7 @@ LRESULT CALLBACK ResultProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		switch (wParam)
 		{
 		case BACK:
-			DestroyWindow(hwnd);
-			CreateViewListRoom(hWnd);
+			listRoom();
 			break;
 		}
 		break;
@@ -944,6 +942,8 @@ void processData(char *rBuff) {
 			}
 			i++;
 		}
+		DestroyWindow(hWndNow);
+		CreateViewListRoom(hWnd);
 	}
 
 	// Process join reply message
@@ -989,8 +989,13 @@ void processData(char *rBuff) {
 		indexQuestions = 0;
 		questions[0] = '\0';
 		answer[0] = '\0';
-		DestroyWindow(hWndNow);
-		CreateViewListRoom(hWnd);
+		listRoom();
+	}
+	else if (replyMessageType == "28") {
+		MessageBox(NULL, L"Phong thi chua bat dau", L"Error!", MB_OK);
+	}
+	else if (replyMessageType == "SUBMITNOTIFICATION") {
+		submit();
 	}
 
 	// Process result reply message
@@ -1028,10 +1033,10 @@ void processData(char *rBuff) {
 	
 	// Process practice reply message
 	else if (replyMessageType == "19") {
+		idOfRoom = "-1";
 		strcpy(questions, data.c_str());
 		DestroyWindow(hWndNow);
 		CreateViewQuestion(hWnd);
-		return;
 	}
 	
 	else if (replyMessageType == "99") {

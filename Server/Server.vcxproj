@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{59091171-6648-4B3D-AA94-16056633B9C5}</ProjectGuid>
+    <ProjectGuid>{612963A1-461B-41EC-B54E-CC7966B668A6}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>Server</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
