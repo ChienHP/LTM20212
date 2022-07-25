@@ -28,7 +28,7 @@ typedef struct room {
 	string numberOfQuestion;
 	string idOfExam;
 	session * admin;
-	vector<pair<session *, int>> resultOfExam;
+	vector<pair<session *, float>> resultOfExam;
 } room;
 // thông tin của 1 câu hỏi
 typedef struct questionInfo {
@@ -66,7 +66,8 @@ void practice(string ,session *);
 exam *randomQuestion(int numberOfQuestion) {
 	exam *tempExam = new exam;
 	set<int> idOfQuestions;
-	int maxQuestion = questions.size();
+	int maxQuestion = questions.size() - 1;
+	
 	while (idOfQuestions.size() < numberOfQuestion) {
 		int idOfQuestion = rand() % maxQuestion;
 		idOfQuestions.insert(idOfQuestion);
@@ -103,6 +104,8 @@ int readFileAccount();
 
 int readFileQuestion();
 
+int readFileResult();
+
 exam *examPractice;
 
 /* procThread - Thread to receive the message from client and process*/
@@ -117,9 +120,9 @@ int main(int argc, char* argv[])
 	SOCKET		listenSock;
 	WSAEVENT	eventListen[1];
 	WSANETWORKEVENTS sockEvent;
-	int a;
 	readFileAccount();
 	readFileQuestion();
+	readFileResult();
 	//Step 1: Initiate WinSock
 	WSADATA wsaData;
 	WORD wVersion = MAKEWORD(2, 2);
@@ -222,7 +225,6 @@ char * convertStringToCharArray(string data) {
 }
 
 void sendMessage(SOCKET sock, char *sendBuff) {
-	cout << "send: " << sendBuff <<endl;
 	int ret = send(sock, sendBuff, strlen(sendBuff), 0);
 	if (ret == SOCKET_ERROR) {
 		printf("Error %d: Cannot send data.\n", WSAGetLastError());
@@ -408,11 +410,10 @@ void submit(string data, session * userSession) {
 		}
 		int numberOfQuestion = stoi(rooms[idOfRoom].numberOfQuestion);
 		float point = (float)correct * 10 / numberOfQuestion;
-		vector<pair<session*, int>> player = rooms[idOfRoom].resultOfExam;
-		for (int i = 0; i < player.size(); i++) {
-			cout << player[i].first->account << " " << userSession->account << endl;
-			if (!player[i].first->account.compare(userSession->account)) {
-				player[i].second = point;
+		vector<pair<session*, float>> *player = &rooms[idOfRoom].resultOfExam;
+		for (int i = 0; i < (*player).size(); i++) {
+			if (!(*player)[i].first->account.compare(userSession->account)) {
+				(*player)[i].second = point;
 				break;
 			}
 		}
@@ -447,7 +448,7 @@ void start(string data, session *userSession) {
 		_beginthreadex(0, 0, clockThread, (void *)&rooms[idOfRoom], 0, 0);
 		rooms[idOfRoom].status = "2";
 		// gui de thi ve cac phong
-		vector <pair<session *, int>> player = rooms[idOfRoom].resultOfExam;
+		vector <pair<session *, float>> player = rooms[idOfRoom].resultOfExam;
 		string message = "16 ";
 		int idOfExam = stoi(rooms[idOfRoom].idOfExam);
 		vector<questionInfo> questions = exams[idOfExam].questions;
@@ -456,31 +457,36 @@ void start(string data, session *userSession) {
 		}
 		message += "#";
 		int length = message.length(), sentByte = 0;
-		char *messBuff = convertStringToCharArray(message);
-		int indexMessBuff = 0, indexSBuff = 0;
-		char sBuff[2048];
-		for (int i = 0; i< player.size(); i++) {
-			while (messBuff[indexMessBuff]) {
-				if (messBuff[indexMessBuff] == '#') {
-					sBuff[indexSBuff] = messBuff[indexMessBuff];
-					sBuff[++indexSBuff] = 0;
-					sendMessage(player[i].first->sock, sBuff);
-					break;
+		int numberOfSend = length / 2047, sent = 0;
+		while (sent<=numberOfSend) {
+			string submess = message.substr(sent * 2048, 2048);
+			char *messBuff = convertStringToCharArray(submess);
+			int indexMessBuff = 0, indexSBuff = 0;
+			char sBuff[2048];
+			for (int i = 0; i< player.size(); i++) {
+				while (messBuff[indexMessBuff]) {
+					if (messBuff[indexMessBuff] == '#') {
+						sBuff[indexSBuff] = messBuff[indexMessBuff];
+						sBuff[++indexSBuff] = 0;
+						sendMessage(player[i].first->sock, sBuff);
+						break;
+					}
+					if (indexMessBuff % 2046 == 0 && indexMessBuff != 0) {
+						sBuff[indexSBuff] = messBuff[indexMessBuff];
+						sBuff[indexSBuff + 1] = 0;
+						sendMessage(player[i].first->sock, sBuff);
+						indexSBuff = 0;
+						indexMessBuff++;
+						continue;
+					}
+					sBuff[indexSBuff++] = messBuff[indexMessBuff++];
 				}
-				if (indexMessBuff % 2046 == 0 && indexMessBuff != 0) {
-					sBuff[indexSBuff] = messBuff[indexMessBuff];
-					sBuff[indexSBuff + 1] = 0;
-					sendMessage(player[i].first->sock, sBuff);
-					indexSBuff = 0;
-					indexMessBuff++;
-					continue;
-				}
-				sBuff[indexSBuff++] = messBuff[indexMessBuff++];
 			}
+			sent++;
 		}
+
 	}
-	else {
-		
+	else {		
 		// thong bao: Ng gui k phai admin
 		sendMessage(userSession->sock, "27#");
 	}
@@ -496,8 +502,7 @@ void result(string data, session* userSession) {
 	}
 	else if (rooms[idOfRoom].status == "3") {
 		string message = "18 ";
-		cout << "OK";
-		vector <pair<session *, int>> player = rooms[idOfRoom].resultOfExam;
+		vector <pair<session *, float>> player = rooms[idOfRoom].resultOfExam;
 		for (int i = 0; i < player.size(); i++) {
 			message += player[i].first->account + " " + to_string(player[i].second) + "/";
 		}
@@ -581,6 +586,9 @@ void handle(char* sBuff, session *userSession) {
 	} else
 	if (requestMessageType == "START") {
 		start(data, userSession);
+	} else 
+	if(requestMessageType == "LOGOUT"){
+		logout(userSession);
 	}
 	else {
 		sendMessage(userSession->sock, "99#");
@@ -652,6 +660,40 @@ int readFileQuestion() {
 	fileInput.close();
 }
 
+int readFileResult() {
+	string account;
+	float resultOfExam;
+	room *tempRoom;
+	ifstream fileInput("Rooms.txt");
+	if (fileInput.fail()) {
+		printf("Failed to open this file!\n");
+		return 0;
+	}
+	while (!fileInput.eof())
+	{
+		char temp[255];
+		fileInput.getline(temp, 255);
+		string line = temp;
+		if (line == "{") {
+			tempRoom = new room;
+			continue;
+		}
+		if (line == "}") {
+			rooms.push_back(*tempRoom);
+			continue;
+		}
+		account = line.substr(0, line.find(" "));
+		resultOfExam = stof(line.substr(line.find(" ") + 1, line.length()));
+		session * tempSession = new session;
+		tempSession->account = account;
+		tempRoom->resultOfExam.push_back(make_pair(tempSession, resultOfExam));
+		tempRoom->status = "3";
+	}
+
+	fileInput.close();
+	return 0;
+}
+
 unsigned __stdcall procThread(void *param) {
 	DWORD		nEvents = 0;
 	DWORD		index;
@@ -717,7 +759,6 @@ unsigned __stdcall procThread(void *param) {
 			//Release socket and event if an error occurs
 			else {
 				rcvBuff[ret] = 0;
-				cout << "recv: " << rcvBuff << endl;
 				int indexBuff = 0;
 				while (rcvBuff[indexBuff] != '\0') {
 					// ENDING_DELIMITER, handle the message
@@ -787,13 +828,25 @@ unsigned __stdcall clockThread(void *examRoom) {
 	int time = stoi(presentRoom->time);
 	int second = time * 60;
 	Sleep(second * 1000);
-	vector<pair<session *, int>> player = presentRoom->resultOfExam;
+	vector<pair<session *, float>> player = presentRoom->resultOfExam;
 	for (int i = 0; i < player.size(); i++) {
 		if (player[i].second == -1) {
 			sendMessage(player[i].first->sock, "SUBMITNOTIFICATION#");
 		}
 	}
 	presentRoom->status = "3";
+	Sleep(10000);
+	ofstream fileOutput("Rooms.txt", ios::app);
+	if (fileOutput.fail()) {
+		printf("Failed to open this file!\n");
+		return 1;
+	}
+	fileOutput << endl;
+	fileOutput << "{" << endl;
+	for (int i = 0; i < player.size(); i++) {
+		fileOutput << player[i].first->account << " " << player[i].second << endl;
+	}
+	fileOutput << "}";
 	return 0;
 };
 
