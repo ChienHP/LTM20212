@@ -1,16 +1,17 @@
 ﻿  Server.cpp
 c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(70): warning C4018: '<': signed/unsigned mismatch
 c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(120): warning C4101: 'a': unreferenced local variable
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(342): warning C4018: '<': signed/unsigned mismatch
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(374): warning C4018: '<': signed/unsigned mismatch
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(377): warning C4244: '=': conversion from 'float' to 'int', possible loss of data
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(415): warning C4018: '<': signed/unsigned mismatch
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(462): warning C4018: '<': signed/unsigned mismatch
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(623): warning C4101: 'sendBuff': unreferenced local variable
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(624): warning C4101: 'connSock': unreferenced local variable
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(625): warning C4101: 'clientAddr': unreferenced local variable
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(752): warning C4018: '<': signed/unsigned mismatch
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(369): warning C4018: '<': signed/unsigned mismatch
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(401): warning C4018: '<': signed/unsigned mismatch
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(404): warning C4244: '=': conversion from 'float' to 'int', possible loss of data
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(442): warning C4018: '<': signed/unsigned mismatch
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(450): warning C4018: '<': signed/unsigned mismatch
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(489): warning C4018: '<': signed/unsigned mismatch
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(650): warning C4101: 'sendBuff': unreferenced local variable
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(651): warning C4101: 'connSock': unreferenced local variable
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(652): warning C4101: 'clientAddr': unreferenced local variable
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(779): warning C4018: '<': signed/unsigned mismatch
 c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(221): warning C4172: returning address of local variable or temporary: result
-c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(614): warning C4715: 'readFileQuestion': not all control paths return a value
+c:\users\admin\documents\visual studio 2015\projects\btlproject\server\server.cpp(641): warning C4715: 'readFileQuestion': not all control paths return a value
   Server.vcxproj -> C:\Users\Admin\documents\visual studio 2015\Projects\BTLProject\Debug\Server.exe
   Server.vcxproj -> C:\Users\Admin\documents\visual studio 2015\Projects\BTLProject\Debug\Server.pdb (Full PDB)

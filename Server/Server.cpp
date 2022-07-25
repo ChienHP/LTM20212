@@ -310,7 +310,34 @@ void login(string data, session *userSession) {
 
 // handle when user post
 void practice(session *userSession) {
-	return; // Tra ve danh sach
+	exam *tempExam = randomQuestion(20);
+	string message = "16 ";
+	for (int i = 0; i < tempExam->questions.size(); i++) {
+		message += questions[i].question;
+	}
+	message += "#";
+	int length = message.length(), sentByte = 0;
+	char *messBuff = convertStringToCharArray(message);
+	int indexMessBuff = 0, indexSBuff = 0;
+	char sBuff[2048];
+	while (messBuff[indexMessBuff]) {
+		if (messBuff[indexMessBuff] == '#') {
+			sBuff[indexSBuff] = messBuff[indexMessBuff];
+			sBuff[++indexSBuff] = 0;
+			sendMessage(userSession->sock, sBuff);
+			break;
+		}
+		if (indexMessBuff % 2046 == 0 && indexMessBuff != 0) {
+			sBuff[indexSBuff] = messBuff[indexMessBuff];
+			sBuff[indexSBuff + 1] = 0;
+			sendMessage(userSession->sock, sBuff);
+			indexSBuff = 0;
+			indexMessBuff++;
+			continue;
+		}
+		sBuff[indexSBuff++] = messBuff[indexMessBuff++];
+	}
+
 }
 
 void createRoom(string data, session *userSession) {
@@ -345,11 +372,6 @@ void getListRoom(session *userSession){
 	int sentByte = 0, length = result.length();
 	char sendBuff[2048];
 
-	while (sentByte + 2048 < length) {
-		strncpy_s(sendBuff, result.c_str(), 2048);
-		sentByte += 2048;
-		sendMessage(userSession->sock, sendBuff);
-	}
 	strncpy_s(sendBuff, result.c_str(), length - sentByte);
 	strcat_s(sendBuff, "#");
 	sendMessage(userSession->sock, sendBuff);
@@ -420,7 +442,7 @@ void start(string data, session *userSession) {
 		char *messBuff = convertStringToCharArray(message);
 		int indexMessBuff = 0, indexSBuff = 0;
 		char sBuff[2048];
-		for (int i = 0; player.size(); i++) {
+		for (int i = 0; i< player.size(); i++) {
 			while (messBuff[indexMessBuff]) {
 				if (messBuff[indexMessBuff] == '#') {
 					sBuff[indexSBuff] = messBuff[indexMessBuff];
