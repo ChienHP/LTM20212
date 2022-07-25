@@ -9,7 +9,7 @@
 #include "winsock2.h"
 #include "string.h"
 #include <vector>
-
+#include "process.h"
 using namespace std;
 #define BACK 100
 #define ANSWER_A 'A'
@@ -29,8 +29,9 @@ using namespace std;
 #define CREATE_ROOM 12
 #define START 13
 #define RESULT 14
+#define PRACTICE 15
 
-
+#define WM_SOCKET WM_USER + 1
 #define SERVER_PORT 5500
 #define SERVER_ADDR "127.0.0.1"
 #define BUFF_SIZE 2047
@@ -54,7 +55,7 @@ void CreateViewRegister(HWND);
 void CreateView2(HWND);
 void CreateViewListRoom(HWND);
 void ViewCreateRoom(HWND);
-void CreateViewRoom(HWND, string roomID);
+void CreateViewRoom(HWND);
 void CreateViewQuestion(HWND);
 void CreateViewResult(HWND, vector<pair<string, string>> players);
 
@@ -76,10 +77,10 @@ HWND hAnswerC;
 HWND hSubmit;
 
 void Send(SOCKET s, char *sBuff, int size, int flags);
-void Receive(SOCKET s, char *rBuff, int size, int flags);
+void Receive(SOCKET s, char *rBuff);
 
-int login(char *username, char *password);
-int Register(char *username, char *password);
+void login(char *username, char *password);
+void Register(char *username, char *password);
 void logout();
 void listRoom();
 void join(string roomID); 
@@ -87,12 +88,14 @@ void createRoom(char *numOfQuestions, char *time);
 void start(string roomID);
 void submit();
 void result(string roomID);
+void practice();
+void processData(char* rBuff);
 
 char questions[10000];
 char answer[BUFF_SIZE];
 int indexQuestions = 0;
 int flag = 0;
-string idRoom;
+string idOfRoom;
 
 SOCKET client;
 typedef struct Room
@@ -146,6 +149,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		MessageBox(hWnd, L"Error: Cannot connect server.", L"Error!", MB_OK);
 		return 0;
 	}
+	WSAAsyncSelect(client, hWnd, WM_SOCKET, FD_READ | FD_CLOSE);
 	MessageBox(hWnd, L"Connected server!", L"Error!", MB_OK);
 
 	// Main message loop:
@@ -160,6 +164,27 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	switch (msg)
 	{
+	case WM_SOCKET:
+	{
+		switch (WSAGETSELECTEVENT(lParam)) {
+		case FD_READ:
+		{
+			int ret;
+			char sBuff[BUFF_SIZE];
+			char rBuff[BUFF_SIZE];
+			Receive(client, rBuff);
+			processData(rBuff);
+		}
+		break;
+
+		case FD_CLOSE:
+		{
+			closesocket(client);
+			break;
+		}
+		}
+	}
+	break;
 	case WM_COMMAND:
 		switch (wParam)
 		{
@@ -252,11 +277,9 @@ LRESULT CALLBACK LoginProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				MessageBox(hWnd, L"Please enter your password.", L"Error!", MB_OK);
 				break;
 			}
-			if (login(username, password) == 1) {
-				DestroyWindow(hWndNow);
-				CreateView2(hWnd);
+			else {
+				login(username, password);
 			}
-			
 			break;
 		}
 			
@@ -321,10 +344,7 @@ LRESULT CALLBACK RegisterProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			}
 			else
 			{
-				if (Register(username, password) == 1) {
-					DestroyWindow(hWndNow);
-					CreateView1(hWnd);
-				}
+				Register(username, password);
 			}
 			break;
 		}
@@ -347,7 +367,7 @@ void CreateView2(HWND hwnd) {
 	RegisterClassW(&swc);
 	hWndNow = CreateWindowW(L"View2", L"", WS_VISIBLE | WS_CHILD, 0, 0, 800, 800, hwnd, NULL, NULL, NULL);
 	CreateWindowW(L"button", L"List Room", WS_VISIBLE | WS_CHILD, 0, 0, 100, 50, hWndNow, (HMENU) VIEW_LIST_ROOM, NULL, NULL);
-	CreateWindowW(L"button", L"Practice", WS_VISIBLE | WS_CHILD, 0, 50, 100, 50, hWndNow, (HMENU) VIEW_QUESTION, NULL, NULL);
+	CreateWindowW(L"button", L"Practice", WS_VISIBLE | WS_CHILD, 0, 50, 100, 50, hWndNow, (HMENU) PRACTICE, NULL, NULL);
 	CreateWindowW(L"button", L"Logout", WS_VISIBLE | WS_CHILD, 0, 100, 100, 50, hWndNow, (HMENU) LOGOUT, NULL, NULL);
 }
 
@@ -359,18 +379,16 @@ LRESULT CALLBACK View2Proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		switch (wParam)
 		{
 		case VIEW_LIST_ROOM:
-			DestroyWindow(hwnd);
-			CreateViewListRoom(hWnd);
+			listRoom();
 			break;
 		
-		case VIEW_QUESTION:
+		case PRACTICE:
+			practice();
 			DestroyWindow(hwnd);
 			CreateViewQuestion(hWnd);
 			break;
 		case LOGOUT:
 			logout();
-			DestroyWindow(hwnd);
-			CreateView1(hWnd);
 			break;
 		}
 		break;
@@ -385,7 +403,6 @@ void CreateViewListRoom(HWND hwnd) {
 	swc.lpfnWndProc = ListRoomProc;
 	RegisterClassW(&swc);
 	hWndNow = CreateWindowW(L"ViewListRoom", L"", WS_VISIBLE | WS_CHILD, 0, 0, 800, 800, hwnd, NULL, NULL, NULL);
-
 }
 
 LRESULT CALLBACK ListRoomProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -393,7 +410,6 @@ LRESULT CALLBACK ListRoomProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	switch (msg)
 	{
 	case WM_CREATE:
-		listRoom();
 		hListRoom = CreateWindowW(L"listbox", NULL, WS_CHILD | WS_VISIBLE | LBS_NOTIFY, 10, 10, 150, 120, hwnd, (HMENU)GET_ID, NULL, NULL);
 		hRoomID = CreateWindowW(L"static", L"", WS_CHILD | WS_VISIBLE, 200, 10, 120, 45, hwnd,NULL, NULL, NULL);
 		hJoin = CreateWindowW(L"Button", L"Join", WS_CHILD | WS_VISIBLE, 300, 10, 120, 45, hwnd, (HMENU)JOIN, NULL, NULL);
@@ -490,7 +506,6 @@ void ViewCreateRoom(HWND hwnd) {
 	swc.lpfnWndProc = CreateRoomProc;
 	RegisterClassW(&swc);
 	hWndNow = CreateWindowW(L"ViewCreateRoom", L"", WS_VISIBLE | WS_CHILD, 0, 0, 800, 800, hwnd, NULL, NULL, NULL);
-
 }
 
 LRESULT CALLBACK CreateRoomProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -542,21 +557,21 @@ LRESULT CALLBACK CreateRoomProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 	}
 }
 
-void CreateViewRoom (HWND hwnd, string roomID) {
+void CreateViewRoom (HWND hwnd) {
 	WNDCLASSW swc = { 0 };
 	swc.lpszClassName = L"ViewRoom";
 	swc.lpfnWndProc = RoomProc;
 	RegisterClassW(&swc);
 	hWndNow = CreateWindowW(L"ViewRoom", L"", WS_VISIBLE | WS_CHILD, 0, 0, 800, 800, hwnd, NULL, NULL, NULL);
 	
-	int idOfRoom = stoi(roomID);
-	string numOfQuestions = "Number of Questions: " + rooms[idOfRoom].numOfQuestions;
-	string time = "Time: " + rooms[idOfRoom].time;
+	int id = stoi(idOfRoom);
+	string numOfQuestions = "Number of Questions: " + rooms[id].numOfQuestions;
+	string time = "Time: " + rooms[id].time;
 	wstring numOfQuestionsStrW = wstring(numOfQuestions.begin(), numOfQuestions.end());
 	const wchar_t* numOfQuestionsW = numOfQuestionsStrW.c_str();
 	wstring timeStrW = wstring(time.begin(), time.end());
 	const wchar_t* timeW = timeStrW.c_str();
-	wstring roomIDStrW = wstring(roomID.begin(), roomID.end());
+	wstring roomIDStrW = wstring(idOfRoom.begin(), idOfRoom.end());
 	const wchar_t* roomIDW = roomIDStrW.c_str();
 
 	hRoomID = CreateWindowW(L"static", roomIDW, WS_VISIBLE | WS_CHILD, 0, 0, 200, 50, hWndNow, NULL, NULL, NULL);
@@ -608,7 +623,6 @@ void CreateViewQuestion(HWND hwnd) {
 	while (true) {
 		if (questions[indexQuestions] == '\0') {
 			submit();
-			break;
 		}
 		if (questions[indexQuestions] == '/') {
 			question[indexQuestion] = '\0';
@@ -647,8 +661,8 @@ void CreateViewQuestion(HWND hwnd) {
 		if (flag == 4) {
 			break;
 		}
+		hSubmit = CreateWindowW(L"button", L"Submit", WS_VISIBLE | WS_CHILD, 0, 200, 150, 50, hWndNow, (HMENU)SUBMIT, NULL, NULL);
 	}
-	hSubmit = CreateWindowW(L"button", L"Submit", WS_VISIBLE | WS_CHILD, 0, 200, 150, 50, hWndNow, (HMENU)SUBMIT, NULL, NULL);
 }
 
 LRESULT CALLBACK QuestionProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -697,7 +711,7 @@ void CreateViewResult(HWND hwnd, vector<pair<string, string>> players) {
 	swc.lpfnWndProc = ResultProc;
 	RegisterClassW(&swc);
 	hWndNow = CreateWindowW(L"ViewResult", L"", WS_VISIBLE | WS_CHILD, 0, 0, 800, 800, hwnd, NULL, NULL, NULL);
-	CreateWindowW(L"button", L"Back", WS_VISIBLE | WS_CHILD, 0, 400, 150, 50, hWndNow, (HMENU)BACK, NULL, NULL);
+	CreateWindowW(L"button", L"Back", WS_VISIBLE | WS_CHILD, 0, 50, 150, 50, hWndNow, (HMENU)BACK, NULL, NULL);
 	int x = 50;
 	for (auto player : players) {
 		string content = player.first + ": " + player.second;
@@ -734,22 +748,18 @@ void Send(SOCKET s, char *in, int size, int flags) {
 		MessageBox(hWnd, L"Error: Cannot send data.", L"Error!", MB_OK);
 }
 /* The recv() wrapper function */
-void Receive(SOCKET s, char *out, int size, int flags) {
+void Receive(SOCKET s, char *out) {
 	int outIndex = 0;
-
 	while (true) {
 		int i = 0;
 		char rBuff[BUFF_SIZE];
-		int n = recv(s, rBuff, BUFF_SIZE+1, flags);
+		int n = recv(s, rBuff, BUFF_SIZE, 0);
 		if (n == SOCKET_ERROR) {
 			MessageBox(hWnd, L"Error: Cannot receive data.", L"Error!", MB_OK);
 			break;
 		}
 		else if (n > 0) {
 			rBuff[n] = '\0';
-			wchar_t resultW[BUFF_SIZE];
-			mbstowcs(resultW, rBuff, BUFF_SIZE);
-			MessageBox(hWnd, resultW, L"Result", MB_OK);
 			while (rBuff[i] != '\0') {
 				if (rBuff[i] == '#') {
 					out[outIndex] = '\0';
@@ -757,108 +767,150 @@ void Receive(SOCKET s, char *out, int size, int flags) {
 				}
 				out[outIndex++] = rBuff[i++];
 			}
-			/*wchar_t resultW[10000];
-			mbstowcs(resultW, out, 10000);
-			MessageBox(hWnd, resultW, L"Result", MB_OK);*/
+
 		}
 	}
-	/*wchar_t rBuffW[BUFF_SIZE];
-	mbstowcs(rBuffW, rBuff, BUFF_SIZE);
-	MessageBox(hWnd, rBuffW, L"Error!", MB_OK);*/
+
 } 
 
-int login(char *username, char *password) {
+// Send username and password to login
+void login(char *username, char *password) {
 	char sBuff[BUFF_SIZE] = "LOGIN";
 	strcat(sBuff, " ");
 	strcat(sBuff, username);
 	strcat(sBuff, " ");
 	strcat(sBuff, password);
 	Send(client, sBuff, BUFF_SIZE, 0);
-
-	char rBuff[BUFF_SIZE];
-	Receive(client, rBuff, BUFF_SIZE, 0);
-	
-	string rBuffStr = string(rBuff);
-
-	if (rBuffStr == "11") {
-		MessageBox(NULL, L"Login successfully.", L"Error!", MB_OK);
-		return 1;
-	}
-	else if (rBuffStr == "21") {
-		MessageBox(NULL, L"Password does not correct.", L"Error!", MB_OK);
-	}
-	else if (rBuffStr == "22") {
-		MessageBox(NULL, L"This account is already logged in another client.", L"Error!", MB_OK);
-	}
-	else if (rBuffStr == "23") {
-		MessageBox(NULL, L"This username does not exists.", L"Error!", MB_OK);
-	}
-	else if (rBuffStr == "24") {
-		MessageBox(NULL, L"you are logged in.", L"Error!", MB_OK);
-	}
-	else {
-		return 0;
-	}
-	return 0;
 }
 
-int Register(char *username, char *password) {
+// Send username and password to register
+void Register(char *username, char *password) {
 	char sBuff[BUFF_SIZE] = "REGISTER";
 	strcat(sBuff, " ");
 	strcat(sBuff, username);
 	strcat(sBuff, " ");
 	strcat(sBuff, password);
-
 	Send(client, sBuff, BUFF_SIZE, 0);
-
-	char rBuff[BUFF_SIZE];
-	Receive(client, rBuff, BUFF_SIZE, 0);
-
-	string rBuffStr = string(rBuff);
-
-	if (rBuffStr == "10") {
-		MessageBox(NULL, L"Register successfully.", L"Error!", MB_OK);
-		return 1;
-	}
-	else if (rBuffStr == "20") {
-		MessageBox(NULL, L"This username already exists.", L"Error!", MB_OK);
-	}
-	return 0;
-
 }
 
+// Send message LOGOUT
 void logout() {
 	char sBuff[BUFF_SIZE] = "LOGOUT";
-	strcat(sBuff, " ");
 	Send(client, sBuff, BUFF_SIZE, 0);
-
-	char rBuff[BUFF_SIZE];
-	Receive(client, rBuff, BUFF_SIZE, 0);
-	string rBuffStr = string(rBuff);
-	if (rBuffStr == "30") {
-		MessageBox(NULL, L"Logout successfully.", L"Error!", MB_OK);
-	}
 }
 
+// Send message LISTROOM to server
 void listRoom() {
 	char sBuff[20] = "LISTROOM";
-	char rBuff[BUFF_SIZE];
 	Send(client, sBuff, 100, 0);
+	return;
+}
 
-	Receive(client, rBuff, BUFF_SIZE, 0);
+// Send message JOIN roomID
+void join(string roomID) {
+	idOfRoom = roomID;
+	char sBuff[BUFF_SIZE] = "JOIN ";
+	char idC[10];
+	strcpy(idC, roomID.c_str());
+	strcat(sBuff, idC);
+	Send(client, sBuff, BUFF_SIZE, 0);
+	return;
+}
 
-	string rBuffStr = string(rBuff);
-	//string rBuffStr = "13 0 1/1 2/2 3/";
+// Send message CREATEROOM numberOfQuestion time
+void createRoom(char *numOfQuestions, char *time) {
+	char sBuff[BUFF_SIZE] = "CREATEROOM";
+	strcat(sBuff, " ");
+	strcat(sBuff, numOfQuestions);
+	strcat(sBuff, " ");
+	strcat(sBuff, time);
+	Send(client, sBuff, BUFF_SIZE, 0);
+	return;
+}
 
+// Send message START roomID
+void start(string roomID) {
+	char sBuff[BUFF_SIZE] = "START ";
+	char idC[10];
+	strcpy(idC, roomID.c_str());
+	strcat(sBuff, idC);
+	Send(client, sBuff, BUFF_SIZE, 0);
+	return;
+}
+
+// Send message SUBMIT roomID
+void submit() {
+	char sBuff[BUFF_SIZE] = "SUBMIT ";
+	char idC[10];
+	strcpy(idC, idOfRoom.c_str());
+	strcat(sBuff, idC);
+	strcat(sBuff, " ");
+	strcat(sBuff, answer);
+	Send(client, sBuff, BUFF_SIZE, 0);
+	return;
+}
+
+// Send message RESULT roomID
+void result(string roomID) {
+	char sBuff[BUFF_SIZE] = "RESULT ";
+	char idC[10];
+	strcpy(idC, roomID.c_str());
+	strcat(sBuff, idC);
+	Send(client, sBuff, BUFF_SIZE, 0);
+	return;
+}
+
+// Send message PRACTICE
+void practice() {
+	char sBuff[BUFF_SIZE] = "PRACTICE";
+	Send(client, sBuff, BUFF_SIZE, 0);
+	return;
+}
+
+void processData(char *rBuff) {
+	string rBuffStr = (string)rBuff;
 	int temp = rBuffStr.find(' ');
 	string replyMessageType = rBuffStr.substr(0, temp);
 	string data = rBuffStr.substr(temp + 1);
-	
-	/*wstring roomStr = wstring(room.begin(), room.end());
-	const wchar_t* roomW = roomStr.c_str();
-	MessageBox(hWnd, roomW, L"Error!", MB_OK);*/
 
-	if (replyMessageType == "13") {
+	// Process register reply message
+	if (replyMessageType == "10") {
+		MessageBox(NULL, L"Register successfully.", L"Error!", MB_OK);
+		DestroyWindow(hWndNow);
+		CreateView1(hWnd);
+	}
+	else if (replyMessageType == "20") {
+		MessageBox(NULL, L"This username already exists.", L"Error!", MB_OK);
+	}
+
+	// Process login reply message
+	else if (replyMessageType == "11") {
+		MessageBox(NULL, L"Login successfully.", L"Error!", MB_OK);
+		DestroyWindow(hWndNow);
+		CreateView2(hWnd);
+	}
+	else if (replyMessageType == "21") {
+		MessageBox(NULL, L"Password does not correct.", L"Error!", MB_OK);
+	}
+	else if (replyMessageType == "22") {
+		MessageBox(NULL, L"This account is already logged in another client.", L"Error!", MB_OK);
+	}
+	else if (replyMessageType == "23") {
+		MessageBox(NULL, L"This username does not exists.", L"Error!", MB_OK);
+	}
+	else if (replyMessageType == "24") {
+		MessageBox(NULL, L"you are logged in.", L"Error!", MB_OK);
+	}
+
+	// Process logout reply message
+	else if (replyMessageType == "12") {
+		MessageBox(NULL, L"Logout successfully.", L"Error!", MB_OK);
+		DestroyWindow(hWndNow);
+		CreateView1(hWnd);
+	}
+
+	// Process list room  reply message
+	else if (replyMessageType == "13") {
 		int flag = 0;
 		string statusTemp = "", idTemp = "";
 		int indexRoom = 0, i = 0;
@@ -888,95 +940,35 @@ void listRoom() {
 			}
 			i++;
 		}
-	}
-	return;
-}
-
-void join(string roomID) {
-	idRoom = roomID;
-	char sBuff[BUFF_SIZE] = "JOIN";
-	strcat(sBuff, " ");
-	char idC[10];
-	strcpy(idC, roomID.c_str());
-	strcat(sBuff, idC);
-	Send(client, sBuff, BUFF_SIZE, 0);
-
-	char rBuff[BUFF_SIZE];
-	Receive(client, rBuff, BUFF_SIZE, 0);
-
-	string rBuffStr = string(rBuff);
-	int temp = rBuffStr.find(' ');
-	string replyMessageType = rBuffStr.substr(0, temp);
-	string data = rBuffStr.substr(temp + 1);
-
-	if (replyMessageType == "14") {
-		int idOfRoom = stoi(roomID);
-		int temp = data.find(' ');
-		rooms[idOfRoom].numOfQuestions = data.substr(0, temp);
-		rooms[idOfRoom].time = data.substr(temp + 1);
 		DestroyWindow(hWndNow);
-		CreateViewRoom(hWnd, roomID);
-		return;
+		CreateViewListRoom(hWnd);
+	}
+
+	// Process join reply message
+	else if (replyMessageType == "14") {
+		int id = stoi(idOfRoom);
+		int temp = data.find(' ');
+		rooms[id].numOfQuestions = data.substr(0, temp);
+		rooms[id].time = data.substr(temp + 1);
+		DestroyWindow(hWndNow);
+		CreateViewRoom(hWnd);
 	}
 	else if (replyMessageType == "25") {
 		MessageBox(hWnd, L"Phong thi dang dien ra.", L"Error!", MB_OK);
-		return;
 	}
 	else if (replyMessageType == "26") {
 		MessageBox(hWnd, L"Phong thi da ket thuc.", L"Error!", MB_OK);
-		return;
-	} 
-}
+	}
 
-void createRoom(char *numOfQuestions, char *time) {
-	char sBuff[BUFF_SIZE] = "CREATEROOM";
-	strcat(sBuff, " ");
-	strcat(sBuff, numOfQuestions);
-	strcat(sBuff, " ");
-	strcat(sBuff, time);
-	Send(client, sBuff, BUFF_SIZE, 0);
-
-	char rBuff[BUFF_SIZE];
-	Receive(client, rBuff, BUFF_SIZE, 0);
-	string rBuffStr = string(rBuff);
-	int temp = rBuffStr.find(' ');
-	string replyMessageType = rBuffStr.substr(0, temp);
-	string data = rBuffStr.substr(temp + 1);
-
-	if (replyMessageType == "15") {
+	// Process create room reply message
+	else if (replyMessageType == "15") {
 		string roomID = data;
 		MessageBox(NULL, L"Create room successfully.", L"Error!", MB_OK);
 		join(roomID);
-		return;
 	}
-	else {
-		MessageBox(NULL, L"Create room fail.", L"Error!", MB_OK);
-		return;
-	}
-	return;
-}
 
-void start(string roomID) {
-	char sBuff[BUFF_SIZE] = "START ";
-	char idC[10];
-	strcpy(idC, roomID.c_str());
-	strcat(sBuff, idC);
-	Send(client, sBuff, BUFF_SIZE, 0);
-
-	char rBuff[10000];
-
-	Receive(client, rBuff, BUFF_SIZE, 0);
-
-	/*wchar_t resultW[BUFF_SIZE];
-	mbstowcs(resultW, rBuff, BUFF_SIZE);
-	MessageBox(hWnd, resultW, L"Result", MB_OK);*/
-
-	string rBuffStr = string(rBuff);
-	int temp = rBuffStr.find(' ');
-	string replyMessageType = rBuffStr.substr(0, temp);
-	string data = rBuffStr.substr(temp + 1);
-
-	if (replyMessageType == "16") {
+	// Process start reply message
+	else if (replyMessageType == "16") {
 		strcpy(questions, data.c_str());
 		DestroyWindow(hWndNow);
 		CreateViewQuestion(hWnd);
@@ -985,63 +977,22 @@ void start(string roomID) {
 	else if (replyMessageType == "27") {
 		MessageBox(NULL, L"You are not the owner of the room", L"Error!", MB_OK);
 	}
-	else {
-		MessageBox(NULL, L"", L"Error!", MB_OK);
-		return;
-	}
-	return;
-}
-
-void submit() {
-	char sBuff[BUFF_SIZE] = "SUBMIT ";
-	char idC[10];
-	strcpy(idC, idRoom.c_str());
-	strcat(sBuff, idC);
-	strcat(sBuff, " ");
-	strcat(sBuff, answer);
-	Send(client, sBuff, BUFF_SIZE, 0);
-	char rBuff[BUFF_SIZE];
-	Receive(client, rBuff, BUFF_SIZE, 0);
-
-	string rBuffStr = string(rBuff);
-	int temp = rBuffStr.find(' ');
-	string replyMessageType = rBuffStr.substr(0, temp);
-	string data = rBuffStr.substr(temp + 1);
-
-	if (replyMessageType == "17") {
+	
+	// Process submit reply message
+	else if (replyMessageType == "17") {
 		string points = "Your points: " + data;
 		wstring pointsStrW = wstring(points.begin(), points.end());
 		const wchar_t* pointsW = pointsStrW.c_str();
 		MessageBox(NULL, pointsW, L"Error!", MB_OK);
-
 		indexQuestions = 0;
 		questions[0] = '\0';
 		answer[0] = '\0';
 		DestroyWindow(hWndNow);
 		CreateViewListRoom(hWnd);
-		return;
 	}
-	else {
-		MessageBox(NULL, L"", L"Error!", MB_OK);
-		return;
-	}
-	return;
-}
 
-void result(string roomID) {
-	char sBuff[BUFF_SIZE] = "RESULT ";
-	char idC[10];
-	strcpy(idC, idRoom.c_str());
-	strcat(sBuff, idC);
-	Send(client, sBuff, BUFF_SIZE, 0);
-	char rBuff[BUFF_SIZE];
-	Receive(client, rBuff, BUFF_SIZE, 0);
-	string rBuffStr = string(rBuff);
-	int temp = rBuffStr.find(' ');
-	string replyMessageType = rBuffStr.substr(0, temp);
-	string data = rBuffStr.substr(temp + 1);
-
-	if (replyMessageType == "18") {
+	// Process result reply message
+	else if (replyMessageType == "18") {
 		vector <pair<string, string>> players;
 		int i = 0;
 		int flag = 0;
@@ -1071,19 +1022,15 @@ void result(string roomID) {
 		}
 		DestroyWindow(hWndNow);
 		CreateViewResult(hWnd, players);
+	}
+	
+	// Process practice reply message
+	else if (replyMessageType == "19") {
+		strcpy(questions, data.c_str());
+		DestroyWindow(hWndNow);
+		CreateViewQuestion(hWnd);
 		return;
 	}
-	else if (replyMessageType == "25") {
-		MessageBox(hWnd, L"Phong thi dang dien ra.", L"Error!", MB_OK);
-		return;
-	}
-	else if (replyMessageType == "28") {
-		MessageBox(hWnd, L"Phong thi chua bat dau.", L"Error!", MB_OK);
-		return;
-	}
-	else {
-		MessageBox(NULL, L"", L"Error!", MB_OK);
-		return;
-	}
+	
 	return;
 }
