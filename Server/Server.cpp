@@ -14,8 +14,6 @@
 #include <set>
 #pragma comment(lib, "Ws2_32.lib")
 using namespace std;
-CRITICAL_SECTION criticalSection;
-
 /* Session user being created when user login app and status's login = 1
 Session user contains all user information
 */
@@ -45,6 +43,7 @@ typedef struct questionInfo {
 	char result; // result of this question
 } questionInfo;
 
+// Information about exam
 typedef struct exam {
 	string numberOfQuestion; // number of questions in the exam
 	vector<questionInfo> questions; // array questions
@@ -150,6 +149,9 @@ int main(int argc, char* argv[])
 	readFileQuestion();
 	readFileResult();
 
+	/* Initial exam mode practice has 10 questions
+		When client turn on app, exam practice get only question from the bank question once
+	*/
 	examPractice = randomQuestion(10);
 	//Step 1: Initiate WinSock
 	WSADATA wsaData;
@@ -191,7 +193,6 @@ int main(int argc, char* argv[])
 	SOCKET connSock;
 	sockaddr_in clientAddr;
 	int clientAddrLen = sizeof(clientAddr);
-	//InitializeCriticalSection(&criticalSection);
 	while (1) {
 		//wait for network events on all socket
 		index = WSAWaitForMultipleEvents(1, eventListen, FALSE, WSA_INFINITE, FALSE);
@@ -199,9 +200,12 @@ int main(int argc, char* argv[])
 			printf("Error %d: WSAWaitForMultipleEvents() failed\n", WSAGetLastError());
 			break;
 		}
-
+		// Define event happen on socket
 		WSAEnumNetworkEvents(listenSock, eventListen[0], &sockEvent);
 
+		/*
+		Check mask be define on socket and handle
+		*/
 		if (sockEvent.lNetworkEvents & FD_ACCEPT) {
 			if (sockEvent.iErrorCode[FD_ACCEPT_BIT] != 0) {
 				printf("FD_ACCEPT failed with error %d\n", sockEvent.iErrorCode[FD_READ_BIT]);
@@ -236,7 +240,6 @@ int main(int argc, char* argv[])
 			WSAResetEvent(eventListen);
 		}
 	}
-	//DeleteCriticalSection(&criticalSection);
 	closesocket(listenSock);
 	WSACleanup();
 	return 0;
@@ -312,6 +315,7 @@ void registerAccount(string data, session *userSession) {
 
 
 void login(string data, session *userSession) {
+	// var result will be sent to client
 	char *result = "";
 
 	// Index of character spacing 
@@ -324,25 +328,21 @@ void login(string data, session *userSession) {
 	string password = data.substr(temp + 1);
 
 	// Send message to client 24 if account logged
-	//EnterCriticalSection(&criticalSection);
 	if (userSession->account != "") {
 		result = "24#";
 	}
-	//LeaveCriticalSection(&criticalSection);
 	if (result != "") {
 		sendMessage(userSession->sock, result);
 		return;
 	}
 
 	// check accounts that are already session in elsewhere
-	//EnterCriticalSection(&criticalSection);
 	for (int i = 0; i < 1000; i++) {
 		if (clientSession[i].account == user) {
 			result = "22#";
 			break;
 		}
 	}
-	//LeaveCriticalSection(&criticalSection);
 	if (result != "") {
 		sendMessage(userSession->sock, result);
 		return;
@@ -352,11 +352,9 @@ void login(string data, session *userSession) {
 	for (iterAccount = userAccount.begin(); iterAccount != userAccount.end(); iterAccount++) {
 		if (iterAccount->first == user) {
 			// active account
-			if (iterAccount->second == password) {// dung password
-				//EnterCriticalSection(&criticalSection);
+			if (iterAccount->second == password) {// correct password
 				userSession->account = iterAccount->first;
 				userSession->status = 1;
-				//LeaveCriticalSection(&criticalSection);
 				sendMessage(userSession->sock, "11#");
 				return;
 			}
@@ -408,6 +406,7 @@ void practice(session *userSession) {
 		// copy message to buffer
 		sBuff[indexSBuff++] = messBuff[indexMessBuff++];
 	}
+	// Finished handle streaming 
 
 }
 
@@ -428,6 +427,7 @@ exam *randomQuestion(int numberOfQuestion) {
 }
 
 void createRoom(string data, session *userSession) {
+	// var result will be sent to client
 	char *result = "";
 
 	// Index of character spacing 
@@ -466,9 +466,10 @@ void createRoom(string data, session *userSession) {
 }
 
 void getListRoom(session *userSession){
+	// var result will be sent to client
 	string result = "13 "; 
 
-	// handle message
+	// handle message to send to client. Client will be recived 1 string
 	for (int i = 0; i < rooms.size(); i++) {
 		result = result + to_string(i) + " " + rooms[i].status + "/";
 	}
@@ -511,6 +512,7 @@ void submit(string data, session * userSession) {
 		sendMessage(userSession->sock, sendBuff);
 	}
 	else {
+		// exam mode
 		int idOfExam = stoi(rooms[idOfRoom].idOfExam);
 		int indexOfResult = 0;
 		int correct = 0;
@@ -593,7 +595,7 @@ void start(string data, session *userSession) {
 			char sBuff[2048];
 
 			//Send the exam questions back to all clients in the exam room
-			// handle streaming
+			// Handle streaming message to send to client
 			while (messBuff[indexMessBuff]) {
 				if (messBuff[indexMessBuff] == '#') {
 					sBuff[indexSBuff] = messBuff[indexMessBuff];
@@ -615,14 +617,16 @@ void start(string data, session *userSession) {
 				}
 				sBuff[indexSBuff++] = messBuff[indexMessBuff++];
 			}
-				
+			// Finished handle streaming
 			sent++;
 		}
 
 	}
+	// Send to message 25 if userSesson's accout not admin room, this user can't start the exam room 
 	else if (!rooms[idOfRoom].admin->account.compare(userSession->account) && rooms[idOfRoom].status == "2") {
 		sendMessage(userSession->sock, "25#");
 	}
+	// Send to message 26 if userSesson's accout not admin room, this user can't start the exam room 
 	else if (!rooms[idOfRoom].admin->account.compare(userSession->account) && rooms[idOfRoom].status == "3") {
 		sendMessage(userSession->sock, "26#");
 	}
@@ -688,9 +692,9 @@ void result(string data, session* userSession) {
 
 // handle when user logs out
 void logout(session *userSession) {
+	// var result will be sent to client
 	char *result = "";
 	// The current session is not session in
-	//EnterCriticalSection(&criticalSection);
 	if (userSession->account == "") {
 		result = "21#";
 	}
@@ -700,7 +704,6 @@ void logout(session *userSession) {
 		userSession->status = 0;
 		result = "12#";
 	}
-	//LeaveCriticalSection(&criticalSection);
 	if (result != "") {
 		sendMessage(userSession->sock, result);
 		return;
@@ -782,6 +785,7 @@ int readFileQuestion() {
 	}
 	questionInfo * tempQuestion = new questionInfo();
 	int i = 0;
+	// handle file question to format question to send to client
 	while (!fileInput.eof())
 	{
 		char temp[2048];
@@ -811,6 +815,7 @@ int readFileQuestion() {
 			i++;
 		}
 	}
+	// Finished handle
 
 	fileInput.close();
 }
@@ -824,6 +829,7 @@ int readFileResult() {
 		printf("Failed to open this file!\n");
 		return 0;
 	}
+	// handle file result to format result to send to client
 	while (!fileInput.eof())
 	{
 		char temp[255];
@@ -902,6 +908,7 @@ unsigned __stdcall procThread(void *param) {
 			}
 
 			ret = recv(socks[index], rcvBuff, BUFF_SIZE, 0);
+			// Remove session client if server dont receive message from client
 			if (ret <= 0) {
 				closesocket(socks[index]);
 				socks[index] = 0;
@@ -913,8 +920,10 @@ unsigned __stdcall procThread(void *param) {
 
 			//Release socket and event if an error occurs
 			else {
+				//echo to client
 				rcvBuff[ret] = 0;
 				int indexBuff = 0;
+				// Handle process stream data receive from client
 				while (rcvBuff[indexBuff] != '\0') {
 					// ENDING_DELIMITER, handle the message
 					if (rcvBuff[indexBuff] == '#') {
@@ -930,7 +939,7 @@ unsigned __stdcall procThread(void *param) {
 					indexMess++;
 					indexBuff++;
 				}
-
+				// Finished handle streaming message
 				//reset event
 				WSAResetEvent(events[index]);
 			}
@@ -947,11 +956,9 @@ unsigned __stdcall procThread(void *param) {
 				WSACloseEvent(events[index]);
 				socks[index] = 0;
 				// reset session of client
-				//EnterCriticalSection(&criticalSection);
 				clientSession[indexClientClose].account = "";
 				clientSession[indexClientClose].sock = 0;
 				clientSession[indexClientClose].clientAddr = {};
-				//LeaveCriticalSection(&criticalSection);
 				nEvents--;
 			}
 			// is the middle element then remove from the array and swap the last element
@@ -963,13 +970,12 @@ unsigned __stdcall procThread(void *param) {
 				closesocket(socks[index]);
 				socks[index] = socks[nEvents - 1];
 				socks[nEvents - 1] = 0;
+
 				// swap the last session and reset session
-				//EnterCriticalSection(&criticalSection);
 				clientSession[indexClientClose] = clientSession[indexLastClient];
 				clientSession[indexLastClient].account = "";
 				clientSession[indexLastClient].sock = 0;
 				clientSession[indexLastClient].clientAddr = {};
-				//LeaveCriticalSection(&criticalSection);
 
 				nEvents--;
 			}
