@@ -15,6 +15,10 @@
 #pragma comment(lib, "Ws2_32.lib")
 using namespace std;
 CRITICAL_SECTION criticalSection;
+
+/* Session user being created when user login app and status's login = 1
+Session user contains all user information
+*/
 typedef struct session {
 	SOCKET sock;
 	sockaddr_in clientAddr;
@@ -22,61 +26,74 @@ typedef struct session {
 	int status;
 } session;
 
+/*
+Room contains all property status(status), examination time(time) , number of question(numberOfQuestion), id of examination(idOfExam)
+the creator of the exam room(admin), the score of each test taker in that exam room(resultOfExam)
+*/
 typedef struct room {
-	string status; // 1: Chua bat dau, 2: Dang dien ra, 3: Da ket thuc
+	string status; // 1: Not yet started, 2: exam in process, 3: Finished
 	string time;
 	string numberOfQuestion;
 	string idOfExam;
 	session * admin;
 	vector<pair<session *, float>> resultOfExam;
 } room;
-// thông tin của 1 câu hỏi
+
+// Information about one question
 typedef struct questionInfo {
-	string question;  // câu hỏi và 3 lựa chọn trắc nghiệm
-	char result; // kết quả
+	string question;  // question with 3 option to choose
+	char result; // result of this question
 } questionInfo;
 
 typedef struct exam {
-	string numberOfQuestion; // số lượng câu hỏi của đề thi
-	vector<questionInfo> questions; // câu hỏi
+	string numberOfQuestion; // number of questions in the exam
+	vector<questionInfo> questions; // array questions
 } exam;
 
 #define BUFF_SIZE 2048
 #define SERVER_ADDR "127.0.0.1"
 #define MAX_NUM_THREAD 1000
+// 1 array session user that use system
 session clientSession[1000];
-vector<pair<string, string> > userAccount;
-vector<pair<string, string> >::iterator iterAccount; 
-vector<room> rooms; // danh sách phòng thi
-vector<questionInfo> questions; // mảng lưu trữ question từ file
-vector<exam> exams;
-int isCreated[MAX_NUM_THREAD] = { 0 };
-char * convertStringToCharArray(string source);
 
+// The user account that has logged into the system
+vector<pair<string, string> > userAccount;
+
+// Pointer used to array vector userAccount
+vector<pair<string, string> >::iterator iterAccount; 
+
+// List exam room
+vector<room> rooms; 
+
+// Array stored question from file contains information about questions
+vector<questionInfo> questions; 
+
+// Array contains exams
+vector<exam> exams;
+
+// exam questions for practice mode
+exam *examPractice;
+
+// Var isCreated used to check if the thread already exists
+int isCreated[MAX_NUM_THREAD] = { 0 };
+
+// Function handle convert 1 string to char array
+char * convertStringToCharArray(string);
+
+// Handle send data to client
 void sendMessage(SOCKET, char *);
 
+// Handle the user's account registration
 void registerAccount(string, session *);
 
 // handle when user logs in
 void login(string ,session *);
 
-// handle when user posts
+// Handle when user choose mode practice
 void practice(string ,session *);
 
-exam *randomQuestion(int numberOfQuestion) {
-	exam *tempExam = new exam;
-	set<int> idOfQuestions;
-	int maxQuestion = questions.size() - 1;
-	
-	while (idOfQuestions.size() < numberOfQuestion) {
-		int idOfQuestion = rand() % maxQuestion;
-		idOfQuestions.insert(idOfQuestion);
-	}
-	for (int i : idOfQuestions) {
-		tempExam->questions.push_back(questions[i]);
-	}
-	return tempExam;
-}
+// Handle random question from the bank question
+exam *randomQuestion(int);
 
 // handle when user logs out
 void logout(session *);
@@ -84,33 +101,40 @@ void logout(session *);
 // defines how the server should process when a user makes a message
 void handle(char *, session *);
 
-// chon de
+// Choose exam
 void choose(string, session *);
 
+// Handle creating exam room for exam
 void createRoom(string data, session *);
 
+// Get list room 
 void getListRoom(session *);
 
+// Submit the exam
 void submit(string data, session *);
 
+// Join the exam room
 void join(string data, session *);
 
+// Start an exam room
 void start(string data, session *);
 
+// Result of the exam room
 void result(string data, session *);
 
 // read file into userAccount
 int readFileAccount();
 
+// Read file into questionInfo
 int readFileQuestion();
 
+// Read file into rooms
 int readFileResult();
-
-exam *examPractice;
 
 /* procThread - Thread to receive the message from client and process*/
 unsigned __stdcall procThread(void *);
 
+// Handle counting time
 unsigned __stdcall clockThread(void *);
 
 int main(int argc, char* argv[])
@@ -120,6 +144,8 @@ int main(int argc, char* argv[])
 	SOCKET		listenSock;
 	WSAEVENT	eventListen[1];
 	WSANETWORKEVENTS sockEvent;
+
+	// Read file to get data 
 	readFileAccount();
 	readFileQuestion();
 	readFileResult();
@@ -214,8 +240,14 @@ int main(int argc, char* argv[])
 	return 0;
 }
 char * convertStringToCharArray(string data) {
+
+	// Var i to traverse array
 	int i = 0;
+
+	// Create 1 char array to store each character of the data
 	char result[10000];
+
+	// While loop to handle copy each charactor of the data info array result
 	while (data[i]) {
 		result[i] = data[i];
 		i++;
@@ -225,7 +257,11 @@ char * convertStringToCharArray(string data) {
 }
 
 void sendMessage(SOCKET sock, char *sendBuff) {
+
+	// Send message to client
 	int ret = send(sock, sendBuff, strlen(sendBuff), 0);
+
+	// If not send message to client, print error on Server
 	if (ret == SOCKET_ERROR) {
 		printf("Error %d: Cannot send data.\n", WSAGetLastError());
 		return;
@@ -233,19 +269,32 @@ void sendMessage(SOCKET sock, char *sendBuff) {
 }
 
 void registerAccount(string data, session *userSession) {
+	// Index of character spacing
 	int temp = data.find(' ');
+
+	// Slice data to get user's account
 	string user = data.substr(0, temp);
+
+	// Slice data to get user's password
 	string password = data.substr(temp + 1);
+
+	// Check if user's account does exist system, send to client message 20 and register failed
 	for (iterAccount = userAccount.begin(); iterAccount != userAccount.end(); iterAccount++) {
 		if (iterAccount->first == user) {
 			sendMessage(userSession->sock, "20#");
 			return;
 		}
 	}
+
+	// Create 1 variable newAccount to store information account user which is taken from the data
 	pair<string, string> newAccount;
 	newAccount.first = user;
 	newAccount.second = password;
+
+	// When account user be created, insert this into array contains all account users
 	userAccount.push_back(newAccount);
+
+	// Write File
 	ofstream fileOutput("account.txt", ios::app);
 	if (fileOutput.fail()) {
 		printf("Failed to open this file!\n");
@@ -253,6 +302,8 @@ void registerAccount(string data, session *userSession) {
 	}
 	fileOutput << user << " " << password << endl;
 	fileOutput.close();
+
+	// Send message to client 10 if register succesfully
 	sendMessage(userSession->sock, "10#");
 	return;
 }
@@ -260,10 +311,17 @@ void registerAccount(string data, session *userSession) {
 
 void login(string data, session *userSession) {
 	char *result = "";
+
+	// Index of character spacing 
 	int temp = data.find(' ');
+
+	// Slice data to get user's account
 	string user = data.substr(0, temp);
+
+	// Slice data to get user's password
 	string password = data.substr(temp + 1);
-	// The current session is session in
+
+	// Send message to client 24 if account logged
 	//EnterCriticalSection(&criticalSection);
 	if (userSession->account != "") {
 		result = "24#";
@@ -273,6 +331,7 @@ void login(string data, session *userSession) {
 		sendMessage(userSession->sock, result);
 		return;
 	}
+
 	// check accounts that are already session in elsewhere
 	//EnterCriticalSection(&criticalSection);
 	for (int i = 0; i < 1000; i++) {
@@ -299,7 +358,7 @@ void login(string data, session *userSession) {
 				sendMessage(userSession->sock, "11#");
 				return;
 			}
-			// sai pass
+			// Wrong password
 			if (iterAccount->second != password) { 
 				sendMessage(userSession->sock, "21#");
 				return;
@@ -310,25 +369,33 @@ void login(string data, session *userSession) {
 	return;
 }
 
-// handle when user post
 void practice(session *userSession) {
+
+	// Get random 10 questions from the bank question
 	examPractice = randomQuestion(10);
+
+	// Handle insert question into message to send to client
 	string message = "19 ";
 	for (int i = 0; i < examPractice->questions.size(); i++) {
 		message += questions[i].question;
 	}
+	// Finished handle data of message
 	message += "#";
+
+	// Handle streaming message to send client
 	int length = message.length(), sentByte = 0;
 	char *messBuff = convertStringToCharArray(message);
 	int indexMessBuff = 0, indexSBuff = 0;
 	char sBuff[2048];
 	while (messBuff[indexMessBuff]) {
+		// if the character is # then finish processing
 		if (messBuff[indexMessBuff] == '#') {
 			sBuff[indexSBuff] = messBuff[indexMessBuff];
 			sBuff[++indexSBuff] = 0;
 			sendMessage(userSession->sock, sBuff);
 			break;
 		}
+		// slicing the message into each buffer
 		if (indexMessBuff % 2046 == 0 && indexMessBuff != 0) {
 			sBuff[indexSBuff] = messBuff[indexMessBuff];
 			sBuff[indexSBuff + 1] = 0;
@@ -337,29 +404,60 @@ void practice(session *userSession) {
 			indexMessBuff++;
 			continue;
 		}
+		// copy message to buffer
 		sBuff[indexSBuff++] = messBuff[indexMessBuff++];
 	}
 
 }
 
+exam *randomQuestion(int numberOfQuestion) {
+	exam *tempExam = new exam;
+	set<int> idOfQuestions;
+	int maxQuestion = questions.size() - 1;
+	// While loop used to get random question from the bank question
+	while (idOfQuestions.size() < numberOfQuestion) {
+		int idOfQuestion = rand() % maxQuestion;
+		idOfQuestions.insert(idOfQuestion);
+	}
+	// After get random question from the bank question, push into questions of the temp exam 
+	for (int i : idOfQuestions) {
+		tempExam->questions.push_back(questions[i]);
+	}
+	return tempExam;
+}
+
 void createRoom(string data, session *userSession) {
 	char *result = "";
+
+	// Index of character spacing 
 	int temp = data.find(' ');
+
+	// Slice data to get number of question of the exam room 
 	string numberOfQuestion = data.substr(0, temp);
+
+	// Slice data to get time examination of the exam room 
 	string time = data.substr(temp + 1);
-	// Thiet lap thong tin cua phong thi va them vao mang PhongThi
+
+	// Settings infomation of the exam room and insert this into array rooms
 	room *newRoom = new room;
 	newRoom->numberOfQuestion = numberOfQuestion;
 	newRoom->status = "1";
 	newRoom->time = time;
 	newRoom->admin = userSession;
-	// Random de thi cho phong
 
+	// Randomize questions from the question bank for the exam room
 	exam *tempExam = randomQuestion(stoi(numberOfQuestion));
+
+	// Push this temp exam into array exams
 	exams.push_back(*tempExam);
+
+	// Set the property ifOfExam newRoom is the index of the newly added element
 	newRoom->idOfExam = to_string(exams.size() - 1);
+
+	// Push into array rooms after newRoom being created
 	rooms.push_back(*newRoom);
 
+	// Handle the message to the correct protocol format to send to the client
 	string message = "15 " + to_string(rooms.size() - 1)+ "#";
 	char* sendBuff= convertStringToCharArray(message);
 	sendMessage(userSession->sock, sendBuff);
@@ -368,40 +466,53 @@ void createRoom(string data, session *userSession) {
 
 void getListRoom(session *userSession){
 	string result = "13 "; 
+
+	// handle message
 	for (int i = 0; i < rooms.size(); i++) {
 		result = result + to_string(i) + " " + rooms[i].status + "/";
 	}
-	int sentByte = 0, length = result.length();
+	int length = result.length();
 	char sendBuff[2048];
 
-	strncpy_s(sendBuff, result.c_str(), length - sentByte);
+	// send message to client
+	strncpy_s(sendBuff, result.c_str(), length);
 	strcat_s(sendBuff, "#");
 	sendMessage(userSession->sock, sendBuff);
 }
 
 void submit(string data, session * userSession) {
+
+	// Index of character spacing 
 	int temp = data.find(' ');
+
+	// Slice data to get idOfRoom
 	int idOfRoom = stoi(data.substr(0, temp));
+
+	// Slice data to get result questions of the client
 	string result = data.substr(temp + 1);
+
+	// if practice mode
 	if (idOfRoom == -1) {
 		int indexOfResult = 0;
 		int correct = 0;
+		// Handle count the number of correct sentences
 		while (result[indexOfResult]) {
 			if (result[indexOfResult] == examPractice->questions[indexOfResult].result) {
 				correct++;
 			}
 			indexOfResult++;
 		}
+		// Send points to client and store into the exam room
 		string message = "17 ";
 		message += to_string(correct) + "#";
 		char *sendBuff = convertStringToCharArray(message);
 		sendMessage(userSession->sock, sendBuff);
-		// Gửi điểm về client và lưu vào phòng thi
 	}
 	else {
 		int idOfExam = stoi(rooms[idOfRoom].idOfExam);
 		int indexOfResult = 0;
 		int correct = 0;
+		// Handle count the number of correct sentences
 		while (result[indexOfResult]) {
 			if (result[indexOfResult] == exams[idOfExam].questions[indexOfResult].result) {
 				correct++;
@@ -410,6 +521,10 @@ void submit(string data, session * userSession) {
 		}
 		int numberOfQuestion = stoi(rooms[idOfRoom].numberOfQuestion);
 		float point = (float)correct * 10 / numberOfQuestion;
+
+		// Finished handle
+
+		// Handle scoring for user
 		vector<pair<session*, float>> *player = &rooms[idOfRoom].resultOfExam;
 		for (int i = 0; i < (*player).size(); i++) {
 			if (!(*player)[i].first->account.compare(userSession->account)) {
@@ -417,16 +532,18 @@ void submit(string data, session * userSession) {
 				break;
 			}
 		}
+		// Send points to client and store into the exam room
 		string message = "17 ";
 		message += to_string(point) + "#";
 		char *sendBuff = convertStringToCharArray(message);
 		sendMessage(userSession->sock, sendBuff);
-		// Gửi điểm về client và lưu vào phòng thi
 	}
 }
 
 void join(string data, session *userSession) {
 	int idOfRoom = stoi(data);
+
+	// Handle message if status room not yet started
 	if (rooms[idOfRoom].status == "1") {
 		if (rooms[idOfRoom].admin->account.compare(userSession->account)) {
 			rooms[idOfRoom].resultOfExam.push_back(make_pair(userSession, -1));
@@ -435,9 +552,13 @@ void join(string data, session *userSession) {
 		char* sendBuff = convertStringToCharArray(message);
 		sendMessage(userSession->sock, sendBuff);
 	}
+
+	// Handle message if status room in process
 	else if (rooms[idOfRoom].status == "2") {
 		sendMessage(userSession->sock, "25#");
 	}
+
+	// Handle message if status room finished
 	else if (rooms[idOfRoom].status == "3") {
 		sendMessage(userSession->sock, "26#");
 	}
@@ -447,23 +568,32 @@ void start(string data, session *userSession) {
 	if (!rooms[idOfRoom].admin->account.compare(userSession->account) || rooms[idOfRoom].status == "2") {
 		_beginthreadex(0, 0, clockThread, (void *)&rooms[idOfRoom], 0, 0);
 		rooms[idOfRoom].status = "2";
-		// gui de thi ve cac phong
+		// Send exam questions to room members
 		vector <pair<session *, float>> player = rooms[idOfRoom].resultOfExam;
 		string message = "16 ";
 		int idOfExam = stoi(rooms[idOfRoom].idOfExam);
 		vector<questionInfo> questions = exams[idOfExam].questions;
+
+		// join question of exam into message
 		for (int i = 0; i < questions.size(); i++) {
 			message += questions[i].question;
 		}
 		message += "#";
 		int length = message.length(), sentByte = 0;
 		int numberOfSend = length / 2047, sent = 0;
+		// Handle streaming
 		while (sent<=numberOfSend) {
+
+			//trim the string to 2048 bytes of buffer
 			string submess = message.substr(sent * 2048, 2048);
 			char *messBuff = convertStringToCharArray(submess);
 			int indexMessBuff = 0, indexSBuff = 0;
 			char sBuff[2048];
+
+			//Send the exam questions back to all clients in the exam room
 			for (int i = 0; i< player.size(); i++) {
+
+				// handle streaming
 				while (messBuff[indexMessBuff]) {
 					if (messBuff[indexMessBuff] == '#') {
 						sBuff[indexSBuff] = messBuff[indexMessBuff];
@@ -487,30 +617,43 @@ void start(string data, session *userSession) {
 
 	}
 	else {		
-		// thong bao: Ng gui k phai admin
+		// Notify non-admin sender
 		sendMessage(userSession->sock, "27#");
 	}
 }
 
 void result(string data, session* userSession) {
 	int idOfRoom = stoi(data);
+
+	// if the exam room hasn't started yet
 	if (rooms[idOfRoom].status == "1") {
 		sendMessage(userSession->sock, "28#");
 	}
+
+	//if the exam room is in process
 	else if (rooms[idOfRoom].status == "2") {
 		sendMessage(userSession->sock, "25#");
 	}
+
+	// if the exam room is finish
 	else if (rooms[idOfRoom].status == "3") {
 		string message = "18 ";
+
+		// Get all members in the exam room
 		vector <pair<session *, float>> player = rooms[idOfRoom].resultOfExam;
 		for (int i = 0; i < player.size(); i++) {
 			message += player[i].first->account + " " + to_string(player[i].second) + "/";
 		}
 		message += "#";
+		// Finished handle
+
+		// Handle their user information and points into the message
 		int length = message.length(), sentByte = 0;
 		char *messBuff = convertStringToCharArray(message);
 		int indexMessBuff = 0, indexSBuff = 0;
 		char sBuff[2048];
+
+		// Handle streaming
 		while (messBuff[indexMessBuff]) {
 			if (messBuff[indexMessBuff] == '#') {
 				sBuff[indexSBuff] = messBuff[indexMessBuff];
@@ -528,9 +671,11 @@ void result(string data, session* userSession) {
 			}
 			sBuff[indexSBuff++] = messBuff[indexMessBuff++];
 		}
+		// Finished streaming
 	}
 
 }
+
 // handle when user logs out
 void logout(session *userSession) {
 	char *result = "";
@@ -827,15 +972,24 @@ unsigned __stdcall clockThread(void *examRoom) {
 	room *presentRoom = (room *)examRoom;
 	int time = stoi(presentRoom->time);
 	int second = time * 60;
+
+	// Handle case of time doing lessons
 	Sleep(second * 1000);
 	vector<pair<session *, float>> player = presentRoom->resultOfExam;
+
+	// required to submit assignments
 	for (int i = 0; i < player.size(); i++) {
+		// If client not have points, send a request
 		if (player[i].second == -1) {
 			sendMessage(player[i].first->sock, "SUBMITNOTIFICATION#");
 		}
 	}
+
+	// Set exam room status as finished
 	presentRoom->status = "3";
 	Sleep(10000);
+
+	// Record the exam results of the room in file
 	ofstream fileOutput("Rooms.txt", ios::app);
 	if (fileOutput.fail()) {
 		printf("Failed to open this file!\n");
