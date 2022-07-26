@@ -149,6 +149,8 @@ int main(int argc, char* argv[])
 	readFileAccount();
 	readFileQuestion();
 	readFileResult();
+
+	examPractice = randomQuestion(10);
 	//Step 1: Initiate WinSock
 	WSADATA wsaData;
 	WORD wVersion = MAKEWORD(2, 2);
@@ -372,11 +374,10 @@ void login(string data, session *userSession) {
 void practice(session *userSession) {
 
 	// Get random 10 questions from the bank question
-	examPractice = randomQuestion(10);
-
+	vector<questionInfo> questions = examPractice->questions;
 	// Handle insert question into message to send to client
 	string message = "19 ";
-	for (int i = 0; i < examPractice->questions.size(); i++) {
+	for (int i = 0; i < questions.size(); i++) {
 		message += questions[i].question;
 	}
 	// Finished handle data of message
@@ -490,6 +491,7 @@ void submit(string data, session * userSession) {
 
 	// Slice data to get result questions of the client
 	string result = data.substr(temp + 1);
+	cout << idOfRoom << " " << result << endl;
 
 	// if practice mode
 	if (idOfRoom == -1) {
@@ -565,7 +567,7 @@ void join(string data, session *userSession) {
 }
 void start(string data, session *userSession) {
 	int idOfRoom = stoi(data);
-	if (!rooms[idOfRoom].admin->account.compare(userSession->account) || rooms[idOfRoom].status == "2") {
+	if (!rooms[idOfRoom].admin->account.compare(userSession->account) && rooms[idOfRoom].status == "1") {
 		_beginthreadex(0, 0, clockThread, (void *)&rooms[idOfRoom], 0, 0);
 		rooms[idOfRoom].status = "2";
 		// Send exam questions to room members
@@ -591,30 +593,38 @@ void start(string data, session *userSession) {
 			char sBuff[2048];
 
 			//Send the exam questions back to all clients in the exam room
-			for (int i = 0; i< player.size(); i++) {
-
-				// handle streaming
-				while (messBuff[indexMessBuff]) {
-					if (messBuff[indexMessBuff] == '#') {
-						sBuff[indexSBuff] = messBuff[indexMessBuff];
-						sBuff[++indexSBuff] = 0;
+			// handle streaming
+			while (messBuff[indexMessBuff]) {
+				if (messBuff[indexMessBuff] == '#') {
+					sBuff[indexSBuff] = messBuff[indexMessBuff];
+					sBuff[++indexSBuff] = 0;
+					for (int i = 0; i < player.size(); i++) {
 						sendMessage(player[i].first->sock, sBuff);
-						break;
 					}
-					if (indexMessBuff % 2046 == 0 && indexMessBuff != 0) {
-						sBuff[indexSBuff] = messBuff[indexMessBuff];
-						sBuff[indexSBuff + 1] = 0;
-						sendMessage(player[i].first->sock, sBuff);
-						indexSBuff = 0;
-						indexMessBuff++;
-						continue;
-					}
-					sBuff[indexSBuff++] = messBuff[indexMessBuff++];
+					break;
 				}
+				if (indexMessBuff % 2046 == 0 && indexMessBuff != 0) {
+					sBuff[indexSBuff] = messBuff[indexMessBuff];
+					sBuff[indexSBuff + 1] = 0;
+					for (int i = 0; i < player.size(); i++) {
+						sendMessage(player[i].first->sock, sBuff);
+					}
+					indexSBuff = 0;
+					indexMessBuff++;
+					continue;
+				}
+				sBuff[indexSBuff++] = messBuff[indexMessBuff++];
 			}
+				
 			sent++;
 		}
 
+	}
+	else if (!rooms[idOfRoom].admin->account.compare(userSession->account) && rooms[idOfRoom].status == "2") {
+		sendMessage(userSession->sock, "25#");
+	}
+	else if (!rooms[idOfRoom].admin->account.compare(userSession->account) && rooms[idOfRoom].status == "3") {
+		sendMessage(userSession->sock, "26#");
 	}
 	else {		
 		// Notify non-admin sender

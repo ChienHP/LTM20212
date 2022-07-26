@@ -1,0 +1,14 @@
+﻿  Client.cpp
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\client\client\client.cpp(165): warning C4715: 'WinMain': not all control paths return a value
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\client\client\client.cpp(242): warning C4715: 'View1Proc': not all control paths return a value
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\client\client\client.cpp(208): warning C4715: 'WndProc': not all control paths return a value
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\client\client\client.cpp(302): warning C4715: 'LoginProc': not all control paths return a value
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\client\client\client.cpp(375): warning C4715: 'RegisterProc': not all control paths return a value
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\client\client\client.cpp(413): warning C4715: 'View2Proc': not all control paths return a value
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\client\client\client.cpp(582): warning C4715: 'CreateRoomProc': not all control paths return a value
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\client\client\client.cpp(635): warning C4715: 'RoomProc': not all control paths return a value
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\client\client\client.cpp(523): warning C4715: 'ListRoomProc': not all control paths return a value
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\client\client\client.cpp(742): warning C4715: 'QuestionProc': not all control paths return a value
+c:\users\chien\desktop\lap trinh mang (it4060)\project mmt\client\client\client.cpp(777): warning C4715: 'ResultProc': not all control paths return a value
+  Client.vcxproj -> C:\Users\Chien\Desktop\Lap trinh mang (IT4060)\Project MMT\Client\Debug\Client.exe
+  Client.vcxproj -> C:\Users\Chien\Desktop\Lap trinh mang (IT4060)\Project MMT\Client\Debug\Client.pdb (Full PDB)
